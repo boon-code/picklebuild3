@@ -90,13 +90,13 @@ class DummyModMan(object):
             for opt_name in self._mods[mod_name]:
                 self._mods[mod_name][opt_name]._set_name(opt_name)
     
-    def get_module_list(self):
+    def getModuleList(self):
         return list(self._mods.keys())
     
-    def get_node_list(self, mod_name):
+    def getNodeList(self, mod_name):
         return list(self._mods[mod_name].values())
     
-    def get_node(self, mod_name, node_name):
+    def getNode(self, mod_name, node_name):
         return self._mods[mod_name][node_name]
     
     def dump(self):
@@ -124,7 +124,7 @@ class ConfigController(object):
     def __init__(self, gui_class, mod_man):
         self._mman = mod_man
         self._gui = gui_class(self)
-        self._gui.initModules(mod_man.get_module_list())
+        self._gui.initModules(mod_man.getModuleList())
         self._cur_mod = None
         self._cur_node = None
         self._opt_type = None
@@ -163,7 +163,7 @@ class ConfigController(object):
             self._cur_opt = None
             self._opt_type = None
             self._cur_mod = name
-            self._gui.initNodes(self._mman.get_node_list(name))
+            self._gui.initNodes(self._mman.getNodeList(name))
             return True
     
     def chooseNode(self, name):
@@ -178,28 +178,28 @@ class ConfigController(object):
         values = (self._cur_mod, self._cur_node, self._cur_opt
                  , self._opt_type)
         if None not in values:
-            node = self._mman.get_node(self._cur_mod, self._cur_node)
-            if self._opt_type == ConfigController._TEXT:
+            node = self._mman.getNode(self._cur_mod, self._cur_node)
+            if self._opt_type == self._TEXT:
                 return node.set_choice(self._cur_opt)
-            elif self._opt_type == ConfigController._LIST:
+            elif self._opt_type == self._LIST:
                 return node.set_choice(self._cur_opt[0])
-            elif self._opt_type == ConfigController._MULTI:
+            elif self._opt_type == self._MULTI:
                 return node.set_choice(self._cur_opt)
         return False
     
     def reloadChoice(self):
         if None not in (self._cur_mod, self._cur_node):
-            node = self._mman.get_node(self._cur_mod, self._cur_node)
+            node = self._mman.getNode(self._cur_mod, self._cur_node)
             self._cur_opt = None
             node_type = node.getNodeType()
             if node_type == pmodules.CT_TEXT:
-                self._opt_type = ConfigController._TEXT
+                self._opt_type = self._TEXT
                 self._gui.setTextNode(node.get_choice())
             elif node_type == pmodules.CT_LIST:
-                self._opt_type = ConfigController._LIST
+                self._opt_type = self._LIST
                 self._gui.setListNode(node.get_list(), node.get_choice())
             elif node_type == pmodules.CT_MULTI:
-                self._opt_type = ConfigController._MULTI
+                self._opt_type = self._MULTI
                 self._gui.setMultiNode(node.get_list(), node.get_choice())
             else:
                 return False
