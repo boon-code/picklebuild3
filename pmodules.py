@@ -254,7 +254,28 @@ class BasicChoice(object):
             return True
     
     def readValue(self):
-        pass
+        """Reads configuration an returns value
+        
+        @returns: Returns value.
+        """
+        return self._value
+    
+    def setValue(self, value):
+        """Configures a new value (will be overriden)
+        
+        @param value: New value that will be set.
+        """
+        if not (self._check is None):
+            if self._check(value):
+                self._value = value
+                self._status |= self.CONFIGURED
+                return True
+            else:
+                return False
+        else:
+            self._value = value
+            self._status |= self.CONFIGURED
+            return True
     
     def getName(self):
         """This method returns the name of this node.
@@ -346,7 +367,7 @@ class BoundChoice(BasicChoice):
         self._func = func
         self._deps = deps
     
-    def register_dependencies(self, nodes):
+    def registerDependencies(self, nodes):
         """
         This method registers all dependencies of this node
         (Which means all nodes that have to be setup before this
@@ -387,7 +408,7 @@ class ScriptFileManager(object):
         self._ext_read = None
         self._ext_write = None
     
-    def execute_script(self, scriptfile):
+    def executeScript(self, scriptfile):
         
         self._nodes = dict()
         self._used = list()
@@ -399,7 +420,7 @@ class ScriptFileManager(object):
             'PB_VERSION' : 'xxx',
             'cfg' : cfg}
         
-        for (extmod, name) in self._mod.get_dependencies():
+        for (extmod, name) in self._mod.getDependencies():
             realname = extmod.uniquename()
             ext = puser.ExternalScriptObject(realname, dict())
             self._used.append(extmod)
@@ -437,7 +458,7 @@ class ScriptFileManager(object):
                     
     def _find_ext_mod(self, name):
         
-        for (extmod, objname) in self._mod.get_dependencies():
+        for (extmod, objname) in self._mod.getDependencies():
             if extmod.uniquename() == name:
                 return extmod
         return None
@@ -497,7 +518,7 @@ class ScriptFileManager(object):
             name = "%s-%s" % (ext.module, ext.name)
             self._check_new_name(name, list_to_check=self._ext_write)
             
-            for (extmod, name) in self._mod.get_dependencies():
+            for (extmod, name) in self._mod.getDependencies():
                 if extmod.uniquename() == name:
                     found_module = extmod
             found_module = self._find_ext_mod()
@@ -615,15 +636,15 @@ class ModuleNode(object):
                 return True
         return False
     
-    def get_dependencies(self):
+    def getDependencies(self):
         return (i for i in self._used_mods)
     
-    def execute_script(self):
+    def executeScript(self):
         
         sman = ScriptFileManager(self)
-        sman.execute_script(self._script_path)
+        sman.executeScript(self._script_path)
     
-    def generate_dst(self, dst):
+    def generateDst(self, dst):
         pass
     
     def dump(self, file=None):
@@ -805,4 +826,4 @@ a = ModuleManager('../test/src')
 a.initModules(b)
 
 a.dump()
-a._mods['TEST'].execute_script()
+a._mods['TEST'].executeScript()

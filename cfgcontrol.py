@@ -53,10 +53,10 @@ class DummyOption(object):
     def isDisabled(self):
         return self._disabled
     
-    def get_choice(self):
+    def readValue(self):
         return self._choice
     
-    def set_choice(self, choice):
+    def setValue(self, choice):
         self._choice = choice
         return True
     
@@ -82,7 +82,7 @@ class DummyModMan(object):
             }
         self._mods['BREAKFAST'] = mod1
         mod2 = {'BLA' : DummyOption(choice="Some Text")
-            , 'SPRACHEN' : DummyOption(lst=("Finisch", "Deutsch", "Englisch"), choice=["Finisch", "Deutsch"])
+            , 'SPRACHEN' : DummyOption(lst=("Finisch", "Deutsch", "Englisch"), choice=None, multi=True)
             }
         self._mods['BLA'] = mod2
         
@@ -106,7 +106,7 @@ class DummyModMan(object):
         for (mod_name, mod) in self._mods.items():
             print("%s:" % mod_name)
             for (opt_name, option) in mod.items():
-                choice = option.get_choice()
+                choice = option.readValue()
                 if choice is None:
                     choice = "<Was None>"
                 else:
@@ -180,11 +180,11 @@ class ConfigController(object):
         if None not in values:
             node = self._mman.getNode(self._cur_mod, self._cur_node)
             if self._opt_type == self._TEXT:
-                return node.set_choice(self._cur_opt)
+                return node.setValue(self._cur_opt)
             elif self._opt_type == self._LIST:
-                return node.set_choice(self._cur_opt[0])
+                return node.setValue(self._cur_opt[0])
             elif self._opt_type == self._MULTI:
-                return node.set_choice(self._cur_opt)
+                return node.setValue(self._cur_opt)
         return False
     
     def reloadChoice(self):
@@ -194,13 +194,13 @@ class ConfigController(object):
             node_type = node.getNodeType()
             if node_type == pmodules.CT_TEXT:
                 self._opt_type = self._TEXT
-                self._gui.setTextNode(node.get_choice())
+                self._gui.setTextNode(node.readValue())
             elif node_type == pmodules.CT_LIST:
                 self._opt_type = self._LIST
-                self._gui.setListNode(node.get_list(), node.get_choice())
+                self._gui.setListNode(node.get_list(), node.readValue())
             elif node_type == pmodules.CT_MULTI:
                 self._opt_type = self._MULTI
-                self._gui.setMultiNode(node.get_list(), node.get_choice())
+                self._gui.setMultiNode(node.get_list(), node.readValue())
             else:
                 return False
             return True
