@@ -13,6 +13,7 @@ from pexcept import NotYetWorkingWarning
 CT_TEXT = 'text'
 CT_LIST = 'list'
 CT_MULTI = 'multi'
+CT_VALUE = 'value'
 
 # just for logging
 _PLOG_NAME = 'modules'
@@ -259,6 +260,18 @@ class BasicChoice(object):
         @returns: Returns value.
         """
         return self._value
+        
+    def _configure_value(self, value):
+        """This method just sets up the new value.
+        
+        It saves the new value and changes the status of this
+        node to configured. It's save to call this method from
+        a subclass.
+        
+        @param value: New value that shall be configured.
+        """
+        self._value = value
+        self._status |= self.CONFIGURED
     
     def setValue(self, value):
         """Configures a new value (will be overriden)
@@ -267,14 +280,12 @@ class BasicChoice(object):
         """
         if self._check is not None:
             if self._check(value):
-                self._value = value
-                self._status |= self.CONFIGURED
+                self._configure_value(value)
                 return True
             else:
                 return False
         else:
-            self._value = value
-            self._status |= self.CONFIGURED
+            self._configure_value(value)
             return True
     
     def getName(self):
@@ -362,6 +373,13 @@ class BasicListChoice(BasicChoice):
         @returns:   Returns a list that can be presented to the user.
         """
         return self._view
+    
+    def getList(self):
+        """This method returns the real list of values that can
+        be chosen.
+        @returns: List of values that can be chosen.
+        """
+        return self._list
 
 class ListChoice(BasicListChoice):
     
