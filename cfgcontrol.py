@@ -60,7 +60,7 @@ class DummyOption(object):
         self._choice = choice
         return True
     
-    def get_list(self):
+    def getViewList(self):
         return self._list
     
     def _set_name(self, name):
@@ -197,10 +197,10 @@ class ConfigController(object):
                 self._gui.setTextNode(node.readValue())
             elif node_type == pmodules.CT_LIST:
                 self._opt_type = self._LIST
-                self._gui.setListNode(node.get_list(), node.readValue())
+                self._gui.setListNode(node.getViewList(), node.readValue())
             elif node_type == pmodules.CT_MULTI:
                 self._opt_type = self._MULTI
-                self._gui.setMultiNode(node.get_list(), node.readValue())
+                self._gui.setMultiNode(node.getViewList(), node.readValue())
             else:
                 return False
             return True

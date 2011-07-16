@@ -265,7 +265,7 @@ class BasicChoice(object):
         
         @param value: New value that will be set.
         """
-        if not (self._check is None):
+        if self._check is not None:
             if self._check(value):
                 self._value = value
                 self._status |= self.CONFIGURED
@@ -300,53 +300,68 @@ class InputChoice(BasicChoice):
 class BasicListChoice(BasicChoice):
     
     def __init__(self, name, ilist, viewlist=None, **kargs):
-        """
-        Creates a new instance. 
+        """Creates a new list node with name 'name'.
+         
         @param name:     Name of node to create.
-        @param ilist:    List object to choose from. (Can also
-                         be an ExternalNode, or an BasicListChoice)
+        @param ilist:    List object to choose from. Has to be a list
+                         or a generator object.
         @param viewlist: Optional viewlist (will be shown to the user).
         @param kargs:    Additional arguments (see BasicChoice). 
         """
         BasicChoice.__init__(self, name, **kargs)
-        self._is_external = False
         self._view = None
-        self._list = ilist
-        self._needs_resolve = False
+        self._list = tuple(ilist)
         
-        is_external = isinstance(ilist, puser.ExternalNode)
-        is_listch = isinstance(ilist, BasicListChoice)
-        
-        if is_external or is_listch:
-            if viewlist is not None:
-                warn("'%s': ilist is a node -> viewlist must be None."
-                     % name, ViewListIgnoredWarning)
-            self._needs_resolve = True
-            raise NotYetWorkingWarning("Not yet implemented...")
-        else:
-            self._list = tuple(ilist)
-            if viewlist is None:
-                self._view = self._list
+        if viewlist is not None:
+            tview = list(view)
+            if len(self._list) == len(tview):
+                self._format_view(tview)
+                self._view = tuple(tview)
             else:
-                tview = list(view)
-                if len(self._list) == len(tview):
-                    self._format_view(tview)
-                    self._view = tuple(tview)
-                else:
-                    warn("'%s': Length of list '%d' != viewlist '%d'."
-                     % (name, len(tlist), len(tview))
-                     , ViewListIgnoredWarning)
-                    self._view = self._list
+                warn("'%s': Length of list '%d' != viewlist '%d'."
+                 % (name, len(self._list), len(tview))
+                 , ViewListIgnoredWarning)
+        if self._view is None:
+            self._view = self._create_view_from_list()
     
-    def _format_view(self, view):
+    def _create_view_from_list(self):
+        """Creates a sring list from self._list
         
-        for (i,v) in enumerate(view):
+        TODO:       Maybe I should add a type check and handle
+                    dictionarys a little bit different...
+        
+        @returns:   Returns a tuple that contains all items of
+                    self._list as string.
+        """
+        return tuple(str(i) for i in self._list)
+    
+    def _format_view(self, viewlist):
+        """Creates a nice list to choose from.
+        
+        
+        @param viewlist: The view list has got some symbolic
+                         names for not easily readable values.
+        @returns:        A tuple with the viewlist that will be shown
+                         to the user.
+        """
+        for (i,v) in enumerate(viewlist):
+            cur_item = str(self_list[i])
             if v is not None:
-                cur_item = str(self_list[i])
-                view[i] = "%s (value: %s)" % (v, cur_item)
+                viewlist[i] = "%s (value: %s)" % (v, cur_item)
             else:
-                view[i] = self._list[i]
-
+                viewlist[i] = "(value: %s)" % cur_item
+        
+        return tuple(viewlist)
+    
+    def getViewList(self):
+        """This method returns the view-list.
+        
+        Viewlist is a list that can be presented to the user
+        see __init__ and _format_view for more information.
+        
+        @returns:   Returns a list that can be presented to the user.
+        """
+        return self._view
 
 class ListChoice(BasicListChoice):
     
@@ -366,17 +381,6 @@ class BoundChoice(BasicChoice):
         BasicChoice.__init__(self, name, **kargs)
         self._func = func
         self._deps = deps
-    
-    def registerDependencies(self, nodes):
-        """
-        This method registers all dependencies of this node
-        (Which means all nodes that have to be setup before this
-        one can be processed)
-        @param nodes: The list of all nodes of the module that
-                      include this node.
-        """
-        
-        pass
 
 
 class ExtOverrideChoice(BasicChoice):
@@ -826,4 +830,4 @@ a = ModuleManager('../test/src')
 a.initModules(b)
 
 a.dump()
-a._mods['TEST'].executeScript()
+#a._mods['TEST'].executeScript()
