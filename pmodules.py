@@ -393,10 +393,9 @@ class MultiChoice(BasicListChoice):
         BasicListChoice.__init__(self, name, ilist, **kargs)
 
 
-class BoundChoice(BasicChoice):
+class BoundChoice(object):
     
-    def __init__(self, name, func, deps, **kargs):
-        BasicChoice.__init__(self, name, **kargs)
+    def __init__(self, func, deps):
         self._func = func
         self._deps = deps
 
