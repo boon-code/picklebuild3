@@ -1,4 +1,3 @@
-
 class HiddenObject(object):
     
     def __init__(self, objects):

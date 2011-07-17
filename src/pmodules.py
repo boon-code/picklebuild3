@@ -98,18 +98,17 @@ class BasicChoice(object):
     """
     
     ENABLED = 1
-    AVAILABLE = 2
-    CONFIGURED = 4
+    CONFIGURED = 2
+    DEPENDENT = 4
     
-    def __init__(self, name, check=None, format=None, help=None,
-        deps=None, flags=None, **kgs):
+    def __init__(self, name, check=None, format=None, help=None
+        , flags=None, **kgs):
         """Creates a new node with name 'name'.
         
         @param name:    Name of this node.
         @param check:   A check method (checks applied value).
         @param format:  This method formats the actual value.
         @param help:    Optional help text.
-        @param deps:    Dependencies of this node.
         @param flags:   Flags which have to be true to enable this
                         node. Note that flags are always automatically
                         added to deps (sine this node depends on them).
@@ -124,19 +123,10 @@ class BasicChoice(object):
         self._value = None
         self._status = 0
         
-        if deps is None:
-            self._deps = set()
-        else:
-            self._deps = set(deps)
-        
         if flags is None:
             self._flags = set()
         else:
             self._flags = set(flags)
-            self._deps.update(self._flags)
-        # TODO: maybe I should check type...
-        for dep in self._deps:
-            dep._add_info_seeker(self)
     
     def _add_info_seeker(self, node):
         """This method add a node that needs the input of this node.
@@ -165,48 +155,26 @@ class BasicChoice(object):
         Will be called by a node that knows that this node depends
         on it if the first node has been configured.
         """
-        status = (self._status & self.CONFIGURED)
-        if self._is_available():
-            status |= self.AVAILABLE
-            if not self._is_disabled():
-                status |= self.ENABLED
+        status = (self._status & (self.CONFIGURED | self.DEPENDENT))
+        if not self._is_disabled():
+            status |= self.ENABLED
         
         if self._status != status:
             self._status = status
             # notify interessted class
     
-    def _is_available(self):
-        """This method checks, if this node is available.
-        
-        Being available means, that all nodes in self._deps have
-        been configured properly.
-        
-        @returns: True if this node is available, else False.
-        """
-        for node in self._deps:
-            # check if nodes are configured
-            if not node.isConfigured():
-                return False
-        return True
-    
     def _is_disabled(self):
         """This method checks if the current node is disabled.
         
         Being disabled means that the input of this node is not needed.
-        Therefore this can't be evaluated before all dependencies are
-        resolved, thus the node has to be available.
-        
-        Important: User of this method has to ensure, that this node
-        is available! Don't use this method directly if you don'T know
-        what you are doing. Use updateStatus instead and call
-        getStatus() afterwards.
         
         @returns: Returns True if this node really is disabled,
                   else False.
         """
         for flag in self._flags:
-            if not flag.readValue():
-                return True
+            if flag.isConfigured:
+                if not flag.readValue():
+                    return True
         return False
     
     def isConfigured(self):
@@ -233,16 +201,6 @@ class BasicChoice(object):
         """
         return self._status
     
-    def isAvailabe(self):
-        """This method returns if this node is available
-        
-        It just reads _status and checks if the available bit is set.
-        """
-        if self._status & self.AVAILABLE:
-            return True
-        else:
-            return False
-    
     def isDisabled(self):
         """This method returns if this node is disabled
         
@@ -254,11 +212,27 @@ class BasicChoice(object):
         else:
             return True
     
-    def readValue(self):
+    def isDependent(self):
+        """This method returns if this node depends on other nodes.
+        
+        @returns: Returns True if this node could change if another
+                  node has been changed.
+        """
+        if self._status & self.DEPENDET:
+            return True
+        else:
+            return False
+    
+    def readValue(self, formatted=False):
         """Reads configuration an returns value
         
+        @param formatted: If formatted is True, the current value will
+                          be formatted by the format method 
+                          (see __init__).
         @returns: Returns value.
         """
+        if formatted and isinstance(self._format, collections.Callable):
+            return self._format(self._value)
         return self._value
         
     def _configure_value(self, value):
@@ -278,7 +252,7 @@ class BasicChoice(object):
         
         @param value: New value that will be set.
         """
-        if self._check is not None:
+        if isinstance(self._check, collections.Callable):
             if self._check(value):
                 self._configure_value(value)
                 return True
@@ -691,7 +665,6 @@ class ModuleManager(object):
     
     def __init__(self, src):
         """
-        
         @param src: The source directory where all modules
                     can be found.
         """
@@ -702,7 +675,8 @@ class ModuleManager(object):
         self._targets = []
     
     def loadConfig(self, config):
-        """
+        """Loads a configuartion.
+        
         This method just overwrites the _config 
         variable. It also iterates through all 
         modules and configures them.
@@ -713,10 +687,12 @@ class ModuleManager(object):
         raise NotImplementedError();
     
     def collectConfig(self):
-        """
+        """Collects current configuration.
+        
         This method collects the current configuration
         of all modules and returns it
         Also overwrites the _config dict.
+        
         @return: A dictionary of all configurations of
                  all modules.
         """
@@ -730,8 +706,8 @@ class ModuleManager(object):
         return self._config
     
     def initModules(self, targetlist):
-        """
-        First loads all modules and afterwards initializes them.
+        """First loads all modules and afterwards initializes them.
+        
         (Extension commands will be processed and connections to 
          other modules should be created here.)
         All targets will be added to the appropriate module.
@@ -748,7 +724,8 @@ class ModuleManager(object):
             mod.initialize(self._src, self._mods)
     
     def _load_modules(self, targetlist, parent, directory):
-        """
+        """Loads all modules.
+        
         This method will be recursively called for each subdirectory
         and load all modules found.
         @param targetlist:  This should be an instance of TreeList
@@ -785,7 +762,8 @@ class ModuleManager(object):
             self._load_modules(targetlist, parent, subs)
     
     def _add_module(self, name, relpath):
-        """
+        """Adds a new module.
+        
         This method trys to add a module with 'name' to the
         ModuleManager.
         @param name:    The name of the module (Note that the
@@ -820,7 +798,7 @@ class ModuleManager(object):
             return mod
     
     def dump(self):
-        """
+        """Dumps current module-list.
         This is just a debug method to list all found modules
         and all targets.
         """
