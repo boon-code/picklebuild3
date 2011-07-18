@@ -123,6 +123,7 @@ class BasicChoice(object):
         # configured value
         self._value = None
         self._status = 0
+        self._override = None
         
         if flags is None:
             self._flags = set()
@@ -188,6 +189,15 @@ class BasicChoice(object):
             return True
         else:
             return False
+    
+    def isOverriden(self):
+        """This method returns if this node is overriden.
+        @returns: True if this one is overriden.
+        """
+        if self._override is None:
+            return False
+        else:
+            return True
     
     def getStatus(self):
         """This method returns the current status.
@@ -269,6 +279,38 @@ class BasicChoice(object):
         @returns: Returns the name of this node.
         """
         return self._name
+    
+    def override(self, node):
+        """This method has to be called to override a node.
+        
+        There can only be one node that overrides this one.
+        
+        TODO: Should throw an Exception if overriding fails.
+        
+        @param node: Node that configures this node.
+        """
+        if self._override is not None:
+            print("change that!")
+            raise TypeError("Wrong Exception Type for failed override...")
+        else:
+            self._override = node
+
+
+class ConstValue(object):
+    
+    def __init__(self, name, value, flags=None, help=None):
+        
+        self._help = help
+        self._value = value
+        self._name = name
+        if flags is None:
+            self._flags = set()
+        else:
+            self._flags = set(flags)
+    
+    def readValue(self, **kargs):
+        
+        return self._value
 
 
 class ExprChoice(BasicChoice):
@@ -601,7 +643,7 @@ class ConfigScriptFile(object):
         """
         pass
     
-    def override(self, ext, func, deps, options):
+    def override(self, ext, options):
         print("override: ", ext, func, deps, options)
         # TODO: find modulenode or raise Exception
         if isinstance(ext, puser.ExternalNode):

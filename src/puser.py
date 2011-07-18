@@ -114,7 +114,7 @@ class ScriptObject(object):
         mod = object.__getattribute__(self, '_mod')
         return mod.depends(deps)
     
-    def override(self, ext, func, *deps, **options):
+    def override(self, ext, **options):
         mod = object.__getattribute__(self, '_mod')
-        return mod.override(ext, func, deps, options)
+        return mod.override(ext, options)
 
