@@ -119,15 +119,12 @@ class Pbgui(CustomPbgui):
         index = 0
         for node in nodes:
             self._lsNodes.insert(tkinter.END, node.getName())
-            if not node.isAvailable():
-                self._lsNodes.itemconfig(index, foreground='red')
+            if node.isDisabled():
+                self._lsNodes.itemconfig(index, foreground='grey')
             else:
-                if node.isDisabled():
-                    self._lsNodes.itemconfig(index, foreground='grey')
-                else:
-                    if node.isConfigured():
-                        self._lsNodes.itemconfig(index
-                            , foreground='green')
+                if node.isConfigured():
+                    self._lsNodes.itemconfig(index
+                        , foreground='green')
             index += 1
     
     def _reset_listbox(self, lstbox):

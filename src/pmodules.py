@@ -280,6 +280,20 @@ class InputChoice(BasicChoice):
     
     def __init__(self, name, **kargs):
         BasicChoice.__init__(self, name, **kargs)
+        kargs.pop('format', None)
+        self._format = self._format_value
+    
+    def _format_value(self, value):
+        """This method formats 'value'
+        
+        It checks that no ' " ' characters mess up the string constant
+        and adds them at the start and at the end of the string.
+        @param value: Value to format.
+        @returns:     Formatted string.
+        """
+        value = value.replace('\\', '\\\\')
+        value = value.replace('"', '\\"')
+        return "".join(('"', value, '"'))
 
 
 class BasicListChoice(BasicChoice):
@@ -296,6 +310,10 @@ class BasicListChoice(BasicChoice):
         BasicChoice.__init__(self, name, **kargs)
         self._view = None
         self._list = tuple(ilist)
+        
+        # remove  key 'check' from kargs if it's set.
+        kargs.pop('check', None)
+        self._check = self._check_value
         
         if viewlist is not None:
             tview = list(view)
@@ -337,6 +355,15 @@ class BasicListChoice(BasicChoice):
                 viewlist[i] = "(value: %s)" % cur_item
         
         return tuple(viewlist)
+    
+    def _check_value(self, value):
+        """This method checks if self._list contains 'value'
+        
+        The actual choice of the user has to be on the list.
+        @param value: Value to check.
+        @returns:     True if value is on the list, else False.
+        """
+        return (value in self._list)
     
     def getViewList(self):
         """This method returns the view-list.
