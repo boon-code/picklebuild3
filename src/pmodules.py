@@ -100,6 +100,7 @@ class BasicChoice(object):
     ENABLED = 1
     CONFIGURED = 2
     DEPENDENT = 4
+    _log = plog.clone_system_logger(_PLOG_NAME)
     
     def __init__(self, name, check=None, format=None, help=None
         , flags=None, **kgs):
@@ -382,23 +383,78 @@ class BasicListChoice(BasicChoice):
         """
         return self._list
 
+
 class ListChoice(BasicListChoice):
     
     def __init__(self, name, ilist, **kargs):
         BasicListChoice.__init__(self, name, ilist, **kargs)
+    
+    def chooseByIndex(self, index):
+        """Choose value by the index in self._list
+        
+        @param index: Index of element that should be configured
+                      (starting from 0).
+        """
+        try:
+            value = self._list[index]
+            self.setValue(value)
+        except IndexError:
+            self._log.debug("IndexError in ListChoice %s (index = %d)"
+                % (self._uname, index))
 
 
 class MultiChoice(BasicListChoice):
     
     def __init__(self, name, ilist, **kargs):
         BasicListChoice.__init__(self, name, ilist, **kargs)
-
-
-class BoundChoice(object):
     
-    def __init__(self, func, deps):
-        self._func = func
+    def chooseIndices(self, indices):
+        """Choose value by indices in self._list
+        
+        @param indices: Tuple of all chosen indices
+                        (index starts from 0).
+        """
+        values = []
+        try:
+            for index in indices:
+                value = self._list[index]
+                values.append(value)
+            self.setValue(values)
+        except IndexError:
+            self._log.debug("IndexError in ListChoice %s (index = %d)"
+                % (self._uname, index))
+
+class DependencyFrame(object):
+    "Contains dependent nodes."
+    
+    RESOLVED = 1
+    EXECUTED = 2
+    
+    def __init__(self, deps):
+        """Initializes a new Frame.
+        
+        Note that this frame is not fully set up yet. It has to be
+        'called' (__call__) to really be initialized.
+        All dependencies (deps) have to be resolved (if they are 
+        ExternalNodes.).
+        """
         self._deps = deps
+        self._func = None
+        self._status = 0
+    
+    def __call__(self, func):
+        """Saves the function that will be called.
+        
+        TypeExcetion will be thrown if 'func' isn't callable.
+        
+        @param func: This function will be called if all dependencies
+                     are configured.
+        """
+        if not isinstance(func, collections.Callable):
+            raise TypeError("function (%s) isn't callable"
+                 % str(func))
+        else:
+            self._func = func
 
 
 class ExtOverrideChoice(BasicChoice):
@@ -421,14 +477,26 @@ class ExtReadChoice(object):
         self._res_node = None
 
 
-class ScriptFileManager(object):
+class ConfigScriptFile(object):
+    """This class executes the configure_xxx.py file.
     
-    def __init__(self, mod):
+    This class handles all stuff related to the configure_xxx.py file
+    (except Extension commands...).
+    """
+    
+    def __init__(self, modnode, modman):
+        """Initializes a new instance...
+        
+        @param modnode: The ModuleNode that created this object.
+        @param modman:  The ModuleManager that contains the modnode.
+        """
+        
         self._mod = mod
         self._nodes = None
         self._used = None
         self._ext_read = None
         self._ext_write = None
+        self._frames = None
     
     def executeScript(self, scriptfile):
         
@@ -436,6 +504,7 @@ class ScriptFileManager(object):
         self._used = list()
         self._ext_read = dict()
         self._ext_write = dict()
+        self._frames = list()
         
         cfg = puser.ScriptObject(self)
         env = {'__builtins__' : __builtins__,
@@ -462,32 +531,22 @@ class ScriptFileManager(object):
             raise ChoiceNodeAlreadyBoundError(
                 "Node '%s' has already been created (module '%s')."
                  % (name, self._mod.uniquename()))
-    
-    def _resolve_deps(self, deps):
-        
-        int_deps = []
-        ext_deps = []
-        for i in deps:
-            if isinstance(i, puser.Node):
-                name = i.name
-                if name in self._nodes:
-                    int_deps.append(self._nodes[name])
-                else:
-                    # TODO:
-                    raise Exception("Couldn't find")
-            elif isinstance(i, puser.ExternalNode):
-                mod_name = i.module
                     
     def _find_ext_mod(self, name):
+        """This method tries to find the external module 'name'.
         
+        @param name: Unique name of the module.
+        @returns:    The module with name 'name' or None if no 
+                     module exists (named 'name').
+        """
         for (extmod, objname) in self._mod.getDependencies():
             if extmod.uniquename() == name:
                 return extmod
         return None
     
     def string(self, name, options):
-        """
-        String parameter will be created.
+        """String parameter will be created.
+        
         (This means that '"' will be added at the begin
         and at the end of the value the user sets up)
         @param name: Unique (in one script) name of this node.
@@ -500,10 +559,10 @@ class ScriptFileManager(object):
         return puser.Node(name)
     
     def expr(self, name, options):
-        """
-        Expression parameter will be created.
+        """Expression parameter will be created.
+        
         This represents only the value the user entered.
-        @param name: Unique (in one script) name of this node.
+        @param name:    Unique (in one script) name of this node.
         @param options: All kinds of options (see InputChoice
                         for more information.)
         """
@@ -513,8 +572,12 @@ class ScriptFileManager(object):
         return puser.Node(name)
     
     def single(self, name, darray, options):
-        """
+        """Single List will be created.
         
+        @param name:    Unique (in one script) name of this node.
+        @param darray:  Array of items to choose from.
+        @param options: All kinds of options (see InputChoice
+                        for more information.)
         """
         print("single: ", name, darray, options)
         self._check_new_name(name)
@@ -527,11 +590,16 @@ class ScriptFileManager(object):
         self._nodes[name] = MultiChoice(name, darray, **options)
         return puser.Node(name)
     
-    def bind(self, name, func, deps, options):
-        print("bind: ", name, func, deps, options)
-        self._check_new_name(name)
-        self._nodes[name] = BoundChoice(name, func, deps, **options)
-        return puser.Node(name)
+    def depends(self, deps):
+        """Registers a depending function.
+        
+        Depending Functions are called Frames. All dependencies
+        have to be configured to enable such a frame.
+        
+        @param deps: List of all dependencies of this Frame.
+        @returns:    The newly created frame object.
+        """
+        pass
     
     def override(self, ext, func, deps, options):
         print("override: ", ext, func, deps, options)

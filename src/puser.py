@@ -36,7 +36,9 @@ class ExternalNode(HiddenObject):
 class ExternalScriptObject(object):
     
     def __init__(self, mod_name, node_dict):
-        """
+        """Creates a new instance.
+        
+        @param mod_name:  Name of this module.
         @param node_dict: This dict instance will be filled with
                           all nodes that have been created.
         """
@@ -46,24 +48,32 @@ class ExternalScriptObject(object):
     def __getattribute__(self, attr_name):
         
         nodes = object.__getattribute__(self, '_nodes')
-        if attr_name == 'get':
-            return object.__getattribute__(self, 'get')
-        if attr_name not in nodes:
+        if attr_name == '__getitem__':
+            return object.__getattribute__(self, '__getitem__')
+        elif attr_name == '__contains__':
+            return object.__getattribute__(self, '__contains__')
+        elif attr_name not in nodes:
             mod_name = object.__getattribute__(self, '_mod')
             nodes[attr_name] = ExternalNode(mod_name, attr_name)
         return nodes[attr_name]
     
     def __dir__(self):
-        # just for debug
+        # just for debugging
         nodes = object.__getattribute__(self, '_nodes')
         return list(nodes.keys())
     
-    def get(self, name):
+    def __getitem__(self, name):
+        # just for debugging
         nodes = object.__getattribute__(self, '_nodes')
         if name in nodes:
             return nodes[name]
         else:
-            return None
+            raise KeyError("No item with name '%s'" % name)
+    
+    def __contains__(self, name):
+        # just for debugging
+        nodes = object.__getattribute__(self, '_nodes')
+        return (name in nodes)
 
 
 class ScriptObject(object):
@@ -100,9 +110,9 @@ class ScriptObject(object):
         mod = object.__getattribute__(self, '_mod')
         return mod.multi(name, darray, options)
     
-    def bind(self, name, func, *deps, **options):
+    def depends(self, *deps):
         mod = object.__getattribute__(self, '_mod')
-        return mod.bind(name, func, deps, options)
+        return mod.depends(deps)
     
     def override(self, ext, func, *deps, **options):
         mod = object.__getattribute__(self, '_mod')
