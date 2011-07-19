@@ -497,6 +497,7 @@ class DependencyFrame(object):
         'called' (__call__) to really be initialized.
         All dependencies (deps) have to be resolved (if they are 
         ExternalNodes.).
+        @param deps: Dependencies of this frame.
         """
         self._deps = deps
         self._func = None
@@ -515,6 +516,18 @@ class DependencyFrame(object):
                  % str(func))
         else:
             self._func = func
+    
+    def _resolve_deps(self, mod):
+        
+        for dep in self._deps:
+            if (isinstance(dep, puser.Node)
+                 or isinstance(dep, puser.ExternalNode)):
+                yield mod.getNode(dep)
+            else:
+                yield dep
+    
+    def resolveDependencies(self, mod):
+        self._deps = self._resolve_deps(mod)
 
 
 class ConfigScriptFile(object):
@@ -529,13 +542,11 @@ class ConfigScriptFile(object):
         
         @param modnode: The ModuleNode that created this object.
         """
-        
         self._mod = modnode
-        self._nodes = None
-        self._used = None
-        self._ext_write = None
-        self._frames = None
         self._current_frame = None
+        self.nodes = None
+        self.ext_write = None
+        self.frames = None
     
     def executeScript(self, scriptfile):
         """This method really runs the configure script.
@@ -543,10 +554,9 @@ class ConfigScriptFile(object):
         This should create all objects.
         @param scriptfile: Full path to the scriptfile.
         """
-        self._nodes = dict()
-        self._used = list()
-        self._ext_write = dict()
-        self._frames = list()
+        self.nodes = dict()
+        self.ext_write = dict()
+        self.frames = list()
         self._current_frame = None
         
         cfg = puser.ScriptObject(self)
@@ -557,7 +567,6 @@ class ConfigScriptFile(object):
         for (extmod, name) in self._mod.getDependencies():
             realname = extmod.uniquename()
             ext = puser.ExternalScriptObject(realname, dict())
-            self._used.append(extmod)
             if name in env:
                 raise InvalidUsedModNameError(
                     "'%s' is an invalid name (use extension)."
@@ -578,7 +587,7 @@ class ConfigScriptFile(object):
                               self._nodes will be checked).
         """
         if list_to_check is None:
-            list_to_check = self._nodes
+            list_to_check = self.nodes
         if name in list_to_check:
             raise ChoiceNodeAlreadyBoundError(
                 "Node '%s' has already been created (module '%s')."
@@ -586,19 +595,19 @@ class ConfigScriptFile(object):
     
     def resolveNodes(self):
         
-        
+        for frame in self._frames:
+            pass
     
-    def _find_ext_mod(self, name):
-        """This method tries to find the external module 'name'.
+    def _add_node(self, name, node):
+        """This method adds a new node (internal).
         
-        @param name: Unique name of the module.
-        @returns:    The module with name 'name' or None if no 
-                     module exists (named 'name').
+        Note that this method only should be called if you know what
+        you are doing...
+        @param name: Name of new node.
+        @param node: The actual node object.
         """
-        for (extmod, objname) in self._mod.getDependencies():
-            if extmod.uniquename() == name:
-                return extmod
-        return None
+        if self._current_frame is None:
+            self.node[name] = node
     
     def define(self, name, value, options):
         """Creates a simple constant value (C #define).
@@ -609,7 +618,7 @@ class ConfigScriptFile(object):
         """
         print("define: ", name, value, options)
         self._check_new_name(name)
-        self._nodes[name] = ConstValue(name, value, **options)
+        self._add_node(name, ConstValue(name, value, **options))
         return puser.Node(name)
     
     def string(self, name, options):
@@ -623,7 +632,7 @@ class ConfigScriptFile(object):
         """
         print("string: ", name, options)
         self._check_new_name(name)
-        self._nodes[name] = InputChoice(name, **options)
+        self._add_node(name, InputChoice(name, **options))
         return puser.Node(name)
     
     def expr(self, name, options):
@@ -636,7 +645,7 @@ class ConfigScriptFile(object):
         """
         print("expr: ", name, options)
         self._check_new_name(name)
-        self._nodes[name] = ExprChoice(name, **options)
+        self._add_node(name, ExprChoice(name, **options))
         return puser.Node(name)
     
     def single(self, name, darray, options):
@@ -649,7 +658,7 @@ class ConfigScriptFile(object):
         """
         print("single: ", name, darray, options)
         self._check_new_name(name)
-        self._nodes[name] = ListChoice(name, darray, **options)
+        self._add_node(name, ListChoice(name, darray, **options))
         return puser.Node(name)
     
     def multi(self, name, darray, options):
@@ -662,7 +671,7 @@ class ConfigScriptFile(object):
         """
         print("multi: ", name, darray, options)
         self._check_new_name(name)
-        self._nodes[name] = MultiChoice(name, darray, **options)
+        self._add_node(name, MultiChoice(name, darray, **options))
         return puser.Node(name)
     
     def depends(self, deps):
@@ -675,7 +684,7 @@ class ConfigScriptFile(object):
         @returns:    The newly created frame object.
         """
         frame = DependencyFrame(deps)
-        self._frames.append(frame)
+        self.frames.append(frame)
         return frame
     
     def override(self, ext, node, options):
@@ -692,13 +701,13 @@ class ConfigScriptFile(object):
             name = "%s_%s" % (ext.module, ext.name)
             self._check_new_name(name, list_to_check=self._ext_write)
             
-            found_module = self._find_ext_mod()
+            found_module = self._mod.getUsedModule(ext)
             
             # TODO:
             if found_module is None:
                 raise Exception("BAD")
             
-            self._ext_write[name] = (ext, node)
+            self.ext_write[name] = (ext, node)
         else:
             raise TypeError(
                 "First parameter of override expects an ExternalNode")
@@ -717,6 +726,7 @@ class ModuleNode(object):
         self._used_mods = []
         # Will (directly) be used by ModuleManager
         self.targets = []
+        self._nodes = None
     
     def uniquename(self):
         return self._uname
@@ -809,10 +819,40 @@ class ModuleNode(object):
     def getDependencies(self):
         return (i for i in self._used_mods)
     
+    def getUsedModule(self, name_or_node):
+        """This method tries to find the external module 'name'.
+        
+        @param name_or_node: Unique name of the module or ExternalNode
+                             (Only Module Name will be used.)
+        @returns:            The module with name 'name' or None if no 
+                             module exists (named 'name').
+        """
+        
+        if isinstance(name_or_node, puser.ExternalNode):
+            name = name_or_node.module
+        else:
+            name = name_or_node
+        
+        for (extmod, objname) in self._used_mods:
+            if extmod.uniquename() == name:
+                return extmod
+        return None
+    
+    def getNode(self, node):
+        
+        if isinstance(node, puser.Node):
+            return self._nodes[node.name]
+        elif isinstance(node, puser.ExternalNode):
+            if node.module == self._uname:
+                return self._nodes[node.name]
+            else:
+                return self.getUsedModule(node).getNode(node)
+    
     def executeScript(self):
         
         sman = ConfigScriptFile(self)
         sman.executeScript(self._script_path)
+        self._nodes = sman.nodes
         return sman
     
     def generateDst(self, dst):
