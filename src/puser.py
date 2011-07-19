@@ -80,7 +80,8 @@ class ScriptObject(object):
     
     def __init__(self, mod):
         self._mod = mod
-        self._names = ('string', 'expr', 'single', 'multi', 'bind')
+        self._names = ('string', 'expr', 'single', 'multi', 'depends'
+             , 'override', 'define')
     
     def __getattribute__(self, name):
         names = object.__getattribute__(self, '_names')
@@ -93,6 +94,10 @@ class ScriptObject(object):
     def __dir__(self):
         names = object.__getattribute__(self, '_names')
         return list(names)
+    
+    def define(self, name, value, **options):
+        mod = object.__getattribute__(self, '_mod')
+        return mod.define(name, options)
     
     def string(self, name, **options):
         mod = object.__getattribute__(self, '_mod')
@@ -114,7 +119,7 @@ class ScriptObject(object):
         mod = object.__getattribute__(self, '_mod')
         return mod.depends(deps)
     
-    def override(self, ext, **options):
+    def override(self, ext, node, **options):
         mod = object.__getattribute__(self, '_mod')
-        return mod.override(ext, options)
+        return mod.override(ext, node, options)
 
