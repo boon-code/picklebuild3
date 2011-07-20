@@ -89,6 +89,18 @@ def _unique_name(name):
 
 
 class BasicNode(object):
+    """This is the root of all nodes and covers the very basics.
+    
+    All node typs are derived from this one. It covers basic features
+    like help text, status, flags and override support.
+    """
+    
+    ENABLED = 1
+    CONFIGURED = 2
+    
+    _log = plog.clone_system_logger(_PLOG_NAME)
+    __slots__ = ('_name', '_override', '_help', '_flags', '_iseeker'
+               , '_status')
     
     def __init__(self, name, help=None, flags=None, **kgs):
         """Creates a new node with name 'name'.
@@ -99,10 +111,44 @@ class BasicNode(object):
                       node. Note that flags are always automatically
                       added to deps (sine this node depends on them).
         """
-        pass
+        self._name = name
+        self._override = None
+        self._iseeker = set()
+        self._status = 0
+        
+        if help is None:
+            self._help = ""
+        else:
+            self._help = help
+        
+        if flags is None:
+            self._flags = set()
+        else:
+            self._flags = set(flags)
     
     def getType(self):
         pass
+    
+    def getName(self):
+        """This method returns the name of this node.
+        
+        @returns: Returns the name of this node.
+        """
+        return self._name
+    
+    def override(self, node):
+        """This method has to be called to override a node.
+        
+        There can only be one node that overrides this one.
+        TODO: Should throw an Exception if overriding fails.
+        
+        @param node: Node that configures this node.
+        """
+        if self._override is not None:
+            print("change that!")
+            raise TypeError("Wrong Exception Type for failed override...")
+        else:
+            self._override = node
 
 
 class BasicChoice(object):
@@ -117,8 +163,8 @@ class BasicChoice(object):
     
     ENABLED = 1
     CONFIGURED = 2
-    DEPENDENT = 4
-    _log = plog.clone_system_logger(_PLOG_NAME)
+    DEPENDENT = 4 
+    
     
     def __init__(self, name, check=None, format=None, help=None
         , flags=None, **kgs):
@@ -133,40 +179,20 @@ class BasicChoice(object):
                         added to deps (sine this node depends on them).
         @param kgs:     Collects unsupported arguments.
         """
-        self._name = name
         self._check = check
         self._format = format
-        self._help = help
-        self._iseeker = set()
         # configured value
         self._value = None
         self._status = 0
         self._override = None
-        
-        if flags is None:
-            self._flags = set()
-        else:
-            self._flags = set(flags)
     
-    def _add_info_seeker(self, node):
+    def addInfoSeeker(self, seeker):
         """This method add a node that needs the input of this node.
         
-        Note that this method has got a side effect on flags! 'node'
-        has to derive flags of it's 'parent'.
         @param node: The node that want to be notified if this one 
                      will be set up.
         """
-        self._iseeker.add(node)
-        node._derive_flags(self._flags)
-    
-    def _derive_flags(self, flags):
-        """This method adds 'flags' to this node
-        
-        This will only be used by this class to derive parent flags.
-        Deriving flags is necessary to disable all depending nodes
-        (since they can never be resolved).
-        """
-        self._flags.update(flags)
+        self._iseeker.add(seeker)
     
     def updateStatus(self):
         """This method updates the current state of this node
@@ -290,28 +316,6 @@ class BasicChoice(object):
         else:
             self._configure_value(value)
             return True
-    
-    def getName(self):
-        """This method returns the name of this node.
-        
-        @returns: Returns the name of this node.
-        """
-        return self._name
-    
-    def override(self, node):
-        """This method has to be called to override a node.
-        
-        There can only be one node that overrides this one.
-        
-        TODO: Should throw an Exception if overriding fails.
-        
-        @param node: Node that configures this node.
-        """
-        if self._override is not None:
-            print("change that!")
-            raise TypeError("Wrong Exception Type for failed override...")
-        else:
-            self._override = node
 
 
 class ConstValue(object):
@@ -502,6 +506,7 @@ class DependencyFrame(object):
         self._deps = deps
         self._func = None
         self._status = 0
+        self._nodes = None
     
     def __call__(self, func):
         """Saves the function that will be called.
@@ -528,6 +533,12 @@ class DependencyFrame(object):
     
     def resolveDependencies(self, mod):
         self._deps = self._resolve_deps(mod)
+        self._status |= self.RESOLVED
+    
+    def addNode(self, name, node):
+        
+        self._nodes[name] = node
+        node.addInfoSeeker(self)
 
 
 class ConfigScriptFile(object):
@@ -593,10 +604,10 @@ class ConfigScriptFile(object):
                 "Node '%s' has already been created (module '%s')."
                  % (name, self._mod.uniquename()))
     
-    def resolveNodes(self):
+    def resolveDependencies(self):
         
         for frame in self._frames:
-            pass
+            frame.resolveDependencies(self._mod)
     
     def _add_node(self, name, node):
         """This method adds a new node (internal).
@@ -606,8 +617,11 @@ class ConfigScriptFile(object):
         @param name: Name of new node.
         @param node: The actual node object.
         """
-        if self._current_frame is None:
-            self.node[name] = node
+        
+        self.node[name] = node
+        
+        if self._current_frame is not None:
+            self._current_frame.addNode(name, node)
     
     def define(self, name, value, options):
         """Creates a simple constant value (C #define).
