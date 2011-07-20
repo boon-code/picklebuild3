@@ -15,4 +15,8 @@ a = pmodules.ModuleManager('../test/src')
 a.initModules(b)
 
 a.dump()
-c = a._mods['TEST'].executeScript()
+for i in a._mods:
+    a._mods[i].executeScript()
+
+c = a._mods['TEST']
+c.resolveNodes()

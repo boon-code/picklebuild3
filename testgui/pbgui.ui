@@ -1,5 +1,5 @@
 # GUIBUILDER FILE Build 146
-# Created: 2011-02-28 14:12:40 by GUI Builder Build 146
+# Created: 2011-07-20 17:56:02 by GUI Builder Build 146
 language tkinter 8.4
 widget {Tk frame} f {
 	geometry min_column 493
@@ -435,7 +435,7 @@ widget {Tk label} _label_5 {
 	data TYPE {Tk label}
 }
 widget {Tk button} _button_1 {
-	configure -text {reset change}
+	configure -text {no function}
 	configure -width 10
 	geometry -column 3
 	geometry -columnspan 1

@@ -10,11 +10,11 @@ import targets
 import puser
 from pexcept import NotYetWorkingWarning
 
-# choice types:
-CT_TEXT = 'text'
-CT_LIST = 'list'
-CT_MULTI = 'multi'
-CT_VALUE = 'value'
+# node types:
+NT_TEXT = 'text'
+NT_LIST = 'list'
+NT_MULTI = 'multi'
+NT_CONST = 'value'
 
 # just for logging
 _PLOG_NAME = 'modules'
@@ -95,12 +95,11 @@ class BasicNode(object):
     like help text, status, flags and override support.
     """
     
-    ENABLED = 1
-    CONFIGURED = 2
+    CONFIGURED = 1
     
     _log = plog.clone_system_logger(_PLOG_NAME)
-    __slots__ = ('_name', '_override', '_help', '_flags', '_iseeker'
-               , '_status')
+    __slots__ = ('_name', '_overrider', '_help', '_flags', '_iseeker'
+               , '_status', '_value')
     
     def __init__(self, name, help=None, flags=None, **kgs):
         """Creates a new node with name 'name'.
@@ -112,9 +111,10 @@ class BasicNode(object):
                       added to deps (sine this node depends on them).
         """
         self._name = name
-        self._override = None
+        self._overrider = None
         self._iseeker = set()
         self._status = 0
+        self._value = None
         
         if help is None:
             self._help = ""
@@ -125,8 +125,10 @@ class BasicNode(object):
             self._flags = set()
         else:
             self._flags = set(flags)
+            for i in self._flags:
+                i.addInfoSeeker(self)
     
-    def getType(self):
+    def getNodeType(self):
         pass
     
     def getName(self):
@@ -136,7 +138,7 @@ class BasicNode(object):
         """
         return self._name
     
-    def override(self, node):
+    def registerOverride(self, node):
         """This method has to be called to override a node.
         
         There can only be one node that overrides this one.
@@ -144,72 +146,24 @@ class BasicNode(object):
         
         @param node: Node that configures this node.
         """
-        if self._override is not None:
+        if self._overrider is not None:
             print("change that!")
             raise TypeError("Wrong Exception Type for failed override...")
         else:
-            self._override = node
-
-
-class BasicChoice(object):
-    """This is the root node, which covers basic properties.
+            self._overrider = node
+            node.addInfoSeeker(self)
+            self.update()
     
-    All node typs are derived from this one. It covers basic features
-    like handle dependencies (nodes, that have to be set up before
-    this one can be configured), flags (can be used to disable 
-    many settings at once), help message, format function,
-    check function etc...
-    """
-    
-    ENABLED = 1
-    CONFIGURED = 2
-    DEPENDENT = 4 
-    
-    
-    def __init__(self, name, check=None, format=None, help=None
-        , flags=None, **kgs):
-        """Creates a new node with name 'name'.
-        
-        @param name:    Name of this node.
-        @param check:   A check method (checks applied value).
-        @param format:  This method formats the actual value.
-        @param help:    Optional help text.
-        @param flags:   Flags which have to be true to enable this
-                        node. Note that flags are always automatically
-                        added to deps (sine this node depends on them).
-        @param kgs:     Collects unsupported arguments.
+    def isOverriden(self):
+        """This method returns if this node is overriden.
+        @returns: True if this one is overriden.
         """
-        self._check = check
-        self._format = format
-        # configured value
-        self._value = None
-        self._status = 0
-        self._override = None
+        if self._overrider is None:
+            return False
+        else:
+            return True
     
-    def addInfoSeeker(self, seeker):
-        """This method add a node that needs the input of this node.
-        
-        @param node: The node that want to be notified if this one 
-                     will be set up.
-        """
-        self._iseeker.add(seeker)
-    
-    def updateStatus(self):
-        """This method updates the current state of this node
-        
-        (Maybe it got available or disabled...)
-        Will be called by a node that knows that this node depends
-        on it if the first node has been configured.
-        """
-        status = (self._status & (self.CONFIGURED | self.DEPENDENT))
-        if not self._is_disabled():
-            status |= self.ENABLED
-        
-        if self._status != status:
-            self._status = status
-            # notify interessted class
-    
-    def _is_disabled(self):
+    def isDisabled(self):
         """This method checks if the current node is disabled.
         
         Being disabled means that the input of this node is not needed.
@@ -221,6 +175,8 @@ class BasicChoice(object):
             if flag.isConfigured:
                 if not flag.readValue():
                     return True
+            else:
+                return True
         return False
     
     def isConfigured(self):
@@ -229,54 +185,56 @@ class BasicChoice(object):
         @returns: Returns True if value has been configured, else
                   False.
         """
-        if self._status & self.CONFIGURED:
-            return True
-        else:
-            return False
+        return (self._status & self.CONFIGURED == self.CONFIGURED)
     
-    def isOverriden(self):
-        """This method returns if this node is overriden.
-        @returns: True if this one is overriden.
+    def readValue(self):
+        """Reads configuration an returns value
+        
+        @returns: Returns value.
         """
-        if self._override is None:
-            return False
-        else:
-            return True
+        return self._value
     
-    def getStatus(self):
-        """This method returns the current status.
+    def addInfoSeeker(self, seeker):
+        """This method add a node that needs the input of this node.
         
-        Important: Status will not be updated first!
-        You have to call updateStatus() first, if you want to be sure
-        to get the most recent status (But this class is intend to 
-        update the status on it'S own, so getStatus should always
-        return the most recent status!
-        
-        @returns: Current status of this node.
+        @param node: The node that want to be notified if this one 
+                     will be set up.
         """
-        return self._status
+        self._iseeker.add(seeker)
     
-    def isDisabled(self):
-        """This method returns if this node is disabled
+    def notifyInfoSeeker(self):
         
-        It just reads _status and checks if the enabled bit is set.
-        @returns: Returns True if node is disabled.
-        """
-        if self._status & self.ENABLED:
-            return False
-        else:
-            return True
+        for seeker in self._iseeker:
+            seeker.update()
     
-    def isDependent(self):
-        """This method returns if this node depends on other nodes.
+    def update(self):
         
-        @returns: Returns True if this node could change if another
-                  node has been changed.
+        if self._overrider:
+            self._status = self._overrider._status
+            self._value = self._overrider._value
+
+
+class BasicChoice(BasicNode):
+    """This is the root node, which covers basic properties.
+    
+    All node typs are derived from this one. It covers basic features
+    like handle dependencies (nodes, that have to be set up before
+    this one can be configured), flags (can be used to disable 
+    many settings at once), help message, format function,
+    check function etc...
+    """
+    
+    def __init__(self, name, check=None, format=None, **kgs):
+        """Creates a new node with name 'name'.
+        
+        @param name:    Name of this node.
+        @param check:   A check method (checks applied value).
+        @param format:  This method formats the actual value.
+        @param kgs:     Collects unsupported arguments.
         """
-        if self._status & self.DEPENDET:
-            return True
-        else:
-            return False
+        BasicNode.__init__(self, name, **kgs)
+        self._check = check
+        self._format = format
     
     def readValue(self, formatted=False):
         """Reads configuration an returns value
@@ -286,10 +244,11 @@ class BasicChoice(object):
                           (see __init__).
         @returns: Returns value.
         """
+        value = BasicNode.readValue(self)
         if formatted and isinstance(self._format, collections.Callable):
-            return self._format(self._value)
-        return self._value
-        
+            return self._format(value)
+        return value
+    
     def _configure_value(self, value):
         """This method just sets up the new value.
         
@@ -301,6 +260,7 @@ class BasicChoice(object):
         """
         self._value = value
         self._status |= self.CONFIGURED
+        self.notifyInfoSeeker()
     
     def setValue(self, value):
         """Configures a new value (will be overriden)
@@ -318,35 +278,34 @@ class BasicChoice(object):
             return True
 
 
-class ConstValue(object):
+class ConstValue(BasicNode):
     
-    def __init__(self, name, value, flags=None, help=None):
+    def __init__(self, name, value, **kgs):
         
-        self._help = help
+        BasicNode.__init__(name, **kgs)
         self._value = value
-        self._name = name
-        if flags is None:
-            self._flags = set()
-        else:
-            self._flags = set(flags)
     
-    def readValue(self, **kargs):
+    def getNodeType(self):
         
-        return self._value
+        return NT_CONST
 
 
 class ExprChoice(BasicChoice):
     
     def __init__(self, name, **kargs):
         BasicChoice.__init__(self, name, **kargs)
+    
+    def getNodeType(self):
+        
+        return NT_TEXT
 
 
 class InputChoice(BasicChoice):
     
     def __init__(self, name, **kargs):
-        BasicChoice.__init__(self, name, **kargs)
         kargs.pop('format', None)
         self._format = self._format_value
+        BasicChoice.__init__(self, name, **kargs)
     
     def _format_value(self, value):
         """This method formats 'value'
@@ -359,6 +318,10 @@ class InputChoice(BasicChoice):
         value = value.replace('\\', '\\\\')
         value = value.replace('"', '\\"')
         return "".join(('"', value, '"'))
+    
+    def getNodeType(self):
+        
+        return NT_TEXT
 
 
 class BasicListChoice(BasicChoice):
@@ -465,6 +428,10 @@ class ListChoice(BasicListChoice):
         except IndexError:
             self._log.debug("IndexError in ListChoice %s (index = %d)"
                 % (self._uname, index))
+    
+    def getNodeType(self):
+        
+        return NT_LIST
 
 
 class MultiChoice(BasicListChoice):
@@ -487,6 +454,11 @@ class MultiChoice(BasicListChoice):
         except IndexError:
             self._log.debug("IndexError in ListChoice %s (index = %d)"
                 % (self._uname, index))
+    
+    def getNodeType(self):
+        
+        return NT_MULTI
+
 
 class DependencyFrame(object):
     "Contains dependent nodes."
@@ -522,23 +494,28 @@ class DependencyFrame(object):
         else:
             self._func = func
     
-    def _resolve_deps(self, mod):
+    def resolveDependencies(self, mod):
         
+        deps = set()
         for dep in self._deps:
             if (isinstance(dep, puser.Node)
-                 or isinstance(dep, puser.ExternalNode)):
-                yield mod.getNode(dep)
+             or isinstance(dep, puser.ExternalNode)):
+                node = mod.getNode(dep)
+                deps.add(node)
+                node.addInfoSeeker(self)
             else:
-                yield dep
-    
-    def resolveDependencies(self, mod):
-        self._deps = self._resolve_deps(mod)
+                deps.add(dep)
+        self._deps = deps
+        
         self._status |= self.RESOLVED
     
     def addNode(self, name, node):
         
         self._nodes[name] = node
         node.addInfoSeeker(self)
+    
+    def update(self):
+        print("check if I'm available.")
 
 
 class ConfigScriptFile(object):
@@ -566,7 +543,7 @@ class ConfigScriptFile(object):
         @param scriptfile: Full path to the scriptfile.
         """
         self.nodes = dict()
-        self.ext_write = dict()
+        self.ext_write = list()
         self.frames = list()
         self._current_frame = None
         
@@ -606,8 +583,14 @@ class ConfigScriptFile(object):
     
     def resolveDependencies(self):
         
-        for frame in self._frames:
+        for frame in self.frames:
             frame.resolveDependencies(self._mod)
+        
+        for (ext, node) in self.ext_write:
+            extmod = self._mod.getUsedModule(ext)
+            i_node = extmod.getNode(ext)
+            o_node = self._mod.getNode(node)
+            i_node.registerOverride(o_node)
     
     def _add_node(self, name, node):
         """This method adds a new node (internal).
@@ -618,7 +601,7 @@ class ConfigScriptFile(object):
         @param node: The actual node object.
         """
         
-        self.node[name] = node
+        self.nodes[name] = node
         
         if self._current_frame is not None:
             self._current_frame.addNode(name, node)
@@ -711,17 +694,14 @@ class ConfigScriptFile(object):
         """
         print("override: ", ext, node, options)
         # TODO: find modulenode or raise Exception
-        if isinstance(ext, puser.ExternalNode):
-            name = "%s_%s" % (ext.module, ext.name)
-            self._check_new_name(name, list_to_check=self._ext_write)
-            
+        if (isinstance(ext, puser.ExternalNode)
+         and isinstance(node, puser.Node)):
             found_module = self._mod.getUsedModule(ext)
-            
             # TODO:
             if found_module is None:
                 raise Exception("BAD")
             
-            self.ext_write[name] = (ext, node)
+            self.ext_write.append((ext, node))
         else:
             raise TypeError(
                 "First parameter of override expects an ExternalNode")
@@ -740,7 +720,7 @@ class ModuleNode(object):
         self._used_mods = []
         # Will (directly) be used by ModuleManager
         self.targets = []
-        self._nodes = None
+        self._cfg = None
     
     def uniquename(self):
         return self._uname
@@ -855,19 +835,23 @@ class ModuleNode(object):
     def getNode(self, node):
         
         if isinstance(node, puser.Node):
-            return self._nodes[node.name]
+            return self._cfg.nodes[node.name]
         elif isinstance(node, puser.ExternalNode):
             if node.module == self._uname:
-                return self._nodes[node.name]
+                return self._cfg.nodes[node.name]
             else:
                 return self.getUsedModule(node).getNode(node)
     
     def executeScript(self):
         
-        sman = ConfigScriptFile(self)
-        sman.executeScript(self._script_path)
-        self._nodes = sman.nodes
-        return sman
+        cfg = ConfigScriptFile(self)
+        cfg.executeScript(self._script_path)
+        self._cfg = cfg
+    
+    def resolveNodes(self):
+        
+        # all modules must be executed.
+        self._cfg.resolveDependencies()
     
     def generateDst(self, dst):
         pass

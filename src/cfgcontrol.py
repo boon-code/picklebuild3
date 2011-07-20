@@ -23,11 +23,11 @@ class DummyOption(object):
                 multi = True
             
             if multi:
-                self._type = pmodules.CT_MULTI
+                self._type = pmodules.NT_MULTI
             else:
-                self._type = pmodules.CT_LIST
+                self._type = pmodules.NT_LIST
         else:
-            self._type = pmodules.CT_TEXT
+            self._type = pmodules.NT_TEXT
             if is_choice_list:
                 choice = None
         
@@ -110,7 +110,7 @@ class DummyModMan(object):
                 if choice is None:
                     choice = "<Was None>"
                 else:
-                    if option.getNodeType() == pmodules.CT_MULTI:
+                    if option.getNodeType() == pmodules.NT_MULTI:
                         choice = str(tuple(i for i in choice))
                 print("  - %s: %s" % (opt_name, choice))
 
@@ -192,13 +192,13 @@ class ConfigController(object):
             node = self._mman.getNode(self._cur_mod, self._cur_node)
             self._cur_opt = None
             node_type = node.getNodeType()
-            if node_type == pmodules.CT_TEXT:
+            if node_type == pmodules.NT_TEXT:
                 self._opt_type = self._TEXT
                 self._gui.setTextNode(node.readValue())
-            elif node_type == pmodules.CT_LIST:
+            elif node_type == pmodules.NT_LIST:
                 self._opt_type = self._LIST
                 self._gui.setListNode(node.getViewList(), node.readValue())
-            elif node_type == pmodules.CT_MULTI:
+            elif node_type == pmodules.NT_MULTI:
                 self._opt_type = self._MULTI
                 self._gui.setMultiNode(node.getViewList(), node.readValue())
             else:
