@@ -212,6 +212,9 @@ class BasicNode(object):
         if self._overrider:
             self._status = self._overrider._status
             self._value = self._overrider._value
+    
+    def isLike(self, node):
+        return (self.getNodeType == node.getNodeType)
 
 
 class BasicChoice(BasicNode):
@@ -223,6 +226,8 @@ class BasicChoice(BasicNode):
     many settings at once), help message, format function,
     check function etc...
     """
+    
+    __slots__ = ('_name', '_format')
     
     def __init__(self, name, check=None, format=None, **kgs):
         """Creates a new node with name 'name'.
@@ -508,7 +513,6 @@ class DependencyFrame(object):
             else:
                 deps.add(dep)
         self._deps = deps
-        
         self._status |= self.RESOLVED
     
     def addNode(self, name, node):
@@ -525,12 +529,9 @@ class DependencyFrame(object):
     def update(self):
         print("check if I'm available.")
         if self._is_available():
-            self._status |= (self.AVAILABLE | self.NEEDEXEC)
+            self._status |= self.NEEDEXEC
         else:
-            self._status &= ~(self.AVAILABLE | self.NEEDEXEC)
-    
-    def isAvailable(self):
-        return (self._status & self.AVAILABLE == self.AVAILABLE)
+            self._status &= ~self.NEEDEXEC
     
     def needsExecute(self):
         return (self._status & self.NEEDEXEC == self.NEEDEXEC)
@@ -544,7 +545,7 @@ class DependencyFrame(object):
                     if a new node has been created.
         """
         # just to be sure
-        if (not self.isAvailable()) or (not self.needsExecute()):
+        if not self.needsExecute():
             return None
         
         csf.installHook(self)
