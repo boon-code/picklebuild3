@@ -464,7 +464,9 @@ class DependencyFrame(object):
     "Contains dependent nodes."
     
     RESOLVED = 1
-    EXECUTED = 2
+    AVAILABLE = 2
+    NEEDEXEC = 4
+    EXECUTED = 8
     
     def __init__(self, deps):
         """Initializes a new Frame.
@@ -514,11 +516,64 @@ class DependencyFrame(object):
         self._nodes[name] = node
         node.addInfoSeeker(self)
     
+    def _is_available(self):
+        for i in self._deps:
+            if not i.isConfigured():
+                return False
+        return True
+    
     def update(self):
         print("check if I'm available.")
+        if self._is_available():
+            self._status |= (self.AVAILABLE | self.NEEDEXEC)
+        else:
+            self._status &= ~(self.AVAILABLE | self.NEEDEXEC)
+    
+    def isAvailable(self):
+        return (self._status & self.AVAILABLE == self.AVAILABLE)
+    
+    def needsExecute(self):
+        return (self._status & self.NEEDEXEC == self.NEEDEXEC)
+    
+    def executeFunction(self, csf):
+        """This method really executes the function (frame).
+        
+        All dependencies have to be configured.
+        @param csf: config script file object. This class is needed
+                    to install a hook that this frame will be notified
+                    if a new node has been created.
+        """
+        # just to be sure
+        if (not self.isAvailable()) or (not self.needsExecute()):
+            return None
+        
+        csf.installHook(self)
+        if self._status & self.EXECUTED:
+            old_nodes = self._nodes
+            # Delete old nodes from csf.
+            csf.removeNodes(old_nodes.keys())
+            
+            self._nodes = dict()
+            self._func(*self._deps)
+            self._status |= (self.EXECUTED)
+            self._status &= (self.NEEDEXEC)
+            
+            for name in self._nodes:
+                new = self._nodes[name]
+                if name in old_nodes:
+                    old = old_nodes[name]
+                    if (old.isConfigured()
+                     and old.isLike(new)
+                     and isinstance(new, BasicChoice)):
+                         new.setValue(old.readValue)
+        else:
+            # TODO: Think about returning some value.
+            self._func(*self._deps)
+            self._status |= (self.EXECUTED)
+            self._status &= (self.NEEDEXEC)
 
 
-class ConfigScriptFile(object):
+class ConfigScriptObj(object):
     """This class executes the configure_xxx.py file.
     
     This class handles all stuff related to the configure_xxx.py file
@@ -591,6 +646,21 @@ class ConfigScriptFile(object):
             i_node = extmod.getNode(ext)
             o_node = self._mod.getNode(node)
             i_node.registerOverride(o_node)
+    
+    def installHook(self, frame):
+        """Installs a hook.
+        
+        Every time a new node has been created, 'frame' will be
+        notified.
+        @param frame: The DependencyFrame that is about ob beeing
+                      executed.
+        """
+        self._current_frame = frame
+    
+    def removeNodes(self, names):
+        
+        for name in names:
+            self._nodes.pop(name, None)
     
     def _add_node(self, name, node):
         """This method adds a new node (internal).
@@ -844,7 +914,7 @@ class ModuleNode(object):
     
     def executeScript(self):
         
-        cfg = ConfigScriptFile(self)
+        cfg = ConfigScriptObj(self)
         cfg.executeScript(self._script_path)
         self._cfg = cfg
     
@@ -852,6 +922,12 @@ class ModuleNode(object):
         
         # all modules must be executed.
         self._cfg.resolveDependencies()
+    
+    def executeFrames(self):
+        
+        for frame in self._frames:
+            frame.executeFunction(self._cfg)
+        
     
     def generateDst(self, dst):
         pass
