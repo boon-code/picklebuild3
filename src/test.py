@@ -1,5 +1,7 @@
 import targets
 import pmodules
+import cfgcontrol
+from pbgui_imp import Pbgui
 
 b = targets.TargetList('../test/src')
 b.add("ha.txt")
@@ -20,3 +22,6 @@ for i in a._mods:
 
 c = a._mods['TEST']
 c.resolveNodes()
+
+man = a
+ctrl = cfgcontrol.ConfigController(Pbgui, man)

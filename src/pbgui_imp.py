@@ -54,6 +54,9 @@ class Pbgui(CustomPbgui):
         self._last_module = None
         self._last_option = tuple()
     
+    def _int_list(self, str_list):
+        return tuple((int(i) for i in str_list))
+    
     def _listbox_event_handler(self, event):
         """
         This event handler processes the <<ListboxSelect>> virtual
@@ -72,12 +75,8 @@ class Pbgui(CustomPbgui):
         else:
             cur_node = self._lsNodes.get(cur_node)
         
-        cur_option = self._lsListconfig.curselection()
-        if len(cur_option) <= 0:
-            cur_option = tuple()
-        else:
-            cur_option = tuple(self._lsListconfig.get(i) 
-                                for i in cur_option)
+        cur_option = self._int_list(self._lsListconfig.curselection())
+        print("curr options", cur_option)
         try:
             #only one event can happen at one time....
             if cur_module not in (self._last_module, None):
@@ -96,17 +95,17 @@ class Pbgui(CustomPbgui):
         text =  self._txTextconfig.get("1.0", tkinter.END).rstrip('\n')
         self._ctrl.setChoice(text)
     
-    def initModules(self, mods):
+    def initModules(self, names):
         """
         Will be called by the controller if a new set of modules
         has been loaded.
-        @param mods: Modules to add.
+        @param names: Module names that will be shown in list.
         """
         self._reset_listbox(self._lsModules)
         self._reset_listbox(self._lsNodes)
         self._reset_config()
-        for mod in mods:
-            self._lsModules.insert(tkinter.END, mod)
+        for mod_name in names:
+            self._lsModules.insert(tkinter.END, mod_name)
     
     def initNodes(self, nodes):
         """
@@ -116,16 +115,9 @@ class Pbgui(CustomPbgui):
         """
         self._reset_listbox(self._lsNodes)
         self._reset_config()
-        index = 0
         for node in nodes:
-            self._lsNodes.insert(tkinter.END, node.getName())
-            if node.isDisabled():
-                self._lsNodes.itemconfig(index, foreground='grey')
-            else:
-                if node.isConfigured():
-                    self._lsNodes.itemconfig(index
-                        , foreground='green')
-            index += 1
+            # self._lsNodes.itemconfig(index, foreground='grey')
+            self._lsNodes.insert(tkinter.END, node)
     
     def _reset_listbox(self, lstbox):
         lstbox.delete("0", tkinter.END)
@@ -159,6 +151,13 @@ class Pbgui(CustomPbgui):
             self._txTextconfig.insert(tkinter.END, choice, 'sel')
             self._root.after(10, self._txTextconfig.focus_force)
     
+    def setConstNode(self, choice):
+        self._reset_config()
+        self._txTextconfig.config(state='normal')
+        if choice is not None:
+            self._txTextconfig.insert(tkinter.END, choice, 'sel')
+        self._txTextconfig.config(state='disabled')
+    
     def setListNode(self, lst, choice):
         """
         Will be called if a single list node has been chosen.
@@ -171,11 +170,7 @@ class Pbgui(CustomPbgui):
         self._lsListconfig.config(state='normal', selectmode='single')
         self._copy_config_list(lst)
         if choice is not None:
-            if choice in lst:
-                index = lst.index(choice)
-                self._lsListconfig.selection_set(str(index))
-            else:
-                print("couldn't find '%s' in '%s'" % (choice, str(lst)))
+            self._lsListconfig.selection_set(str(choice))
     
     def setMultiNode(self, lst, choice):
         """
@@ -189,12 +184,8 @@ class Pbgui(CustomPbgui):
         self._lsListconfig.config(state='normal', selectmode='multiple')
         self._copy_config_list(lst)
         if choice is not None:
-            for selitem in choice:
-                if selitem in lst:
-                    index = lst.index(selitem)
-                    self._lsListconfig.selection_set(str(index))
-                else:
-                    print("couldn't find '%s' in '%s'" % (selitem, str(lst)))
+            for index in choice:
+                self._lsListconfig.selection_set(str(index))
     
     def mainloop(self):
         """

@@ -99,7 +99,7 @@ class BasicNode(object):
     
     _log = plog.clone_system_logger(_PLOG_NAME)
     __slots__ = ('_name', '_overrider', '_help', '_flags', '_iseeker'
-               , '_status', '_value')
+               , '_status', '_value', '_unresolved_flags')
     
     def __init__(self, name, help=None, flags=None, **kgs):
         """Creates a new node with name 'name'.
@@ -121,12 +121,12 @@ class BasicNode(object):
         else:
             self._help = help
         
+        self._flags = set()
+        
         if flags is None:
-            self._flags = set()
+            self._unresolved_flags = set()
         else:
-            self._flags = set(flags)
-            for i in self._flags:
-                i.addInfoSeeker(self)
+            self._unresolved_flags = set(flags)
     
     def getNodeType(self):
         pass
@@ -153,6 +153,17 @@ class BasicNode(object):
             self._overrider = node
             node.addInfoSeeker(self)
             self.update()
+    
+    def resolveFlags(self, mod):
+        """This method resolves flags.
+        
+        @param mod: module node that is needed to resolve.
+        """
+        for flag in self._unresolved_flags:
+            if not isinstance(flag, BasicNode):
+                flag_node = mod.getNode(flag)
+                self._flags.add(flag_node)
+                flag_node.addInfoSeeker(self)
     
     def isOverriden(self):
         """This method returns if this node is overriden.
@@ -275,8 +286,10 @@ class BasicChoice(BasicNode):
         if isinstance(self._check, collections.Callable):
             if self._check(value):
                 self._configure_value(value)
+                print("check True")
                 return True
             else:
+                print("check False")
                 return False
         else:
             self._configure_value(value)
@@ -337,16 +350,13 @@ class BasicListChoice(BasicChoice):
         @param name:     Name of node to create.
         @param ilist:    List object to choose from. Has to be a list
                          or a generator object.
+        @param check:    
         @param viewlist: Optional viewlist (will be shown to the user).
         @param kargs:    Additional arguments (see BasicChoice). 
         """
         BasicChoice.__init__(self, name, **kargs)
         self._view = None
         self._list = tuple(ilist)
-        
-        # remove  key 'check' from kargs if it's set.
-        kargs.pop('check', None)
-        self._check = self._check_value
         
         if viewlist is not None:
             tview = list(view)
@@ -389,15 +399,6 @@ class BasicListChoice(BasicChoice):
         
         return tuple(viewlist)
     
-    def _check_value(self, value):
-        """This method checks if self._list contains 'value'
-        
-        The actual choice of the user has to be on the list.
-        @param value: Value to check.
-        @returns:     True if value is on the list, else False.
-        """
-        return (value in self._list)
-    
     def getViewList(self):
         """This method returns the view-list.
         
@@ -407,6 +408,13 @@ class BasicListChoice(BasicChoice):
         @returns:   Returns a list that can be presented to the user.
         """
         return self._view
+    
+    def _get_index(self, value):
+        
+        for (i, v) in enumerate(self._list):
+            if v == value:
+                return i
+        print("throw exception, or warning ListChoice.getIndex")
     
     def getList(self):
         """This method returns the real list of values that can
@@ -419,7 +427,18 @@ class BasicListChoice(BasicChoice):
 class ListChoice(BasicListChoice):
     
     def __init__(self, name, ilist, **kargs):
-        BasicListChoice.__init__(self, name, ilist, **kargs)
+        kargs.pop('check', None)
+        BasicListChoice.__init__(self, name, ilist
+             , check=self._check_value, **kargs)
+    
+    def _check_value(self, value):
+        """This method checks if self._list contains 'value'
+        
+        The actual choice of the user has to be on the list.
+        @param value: Value to check.
+        @returns:     True if value is on the list, else False.
+        """
+        return (value in self._list)
     
     def chooseByIndex(self, index):
         """Choose value by the index in self._list
@@ -429,10 +448,14 @@ class ListChoice(BasicListChoice):
         """
         try:
             value = self._list[index]
-            self.setValue(value)
+            return self.setValue(value)
         except IndexError:
             self._log.debug("IndexError in ListChoice %s (index = %d)"
                 % (self._uname, index))
+    
+    def getIndex(self):
+        
+        return self._get_index(self.readValue())
     
     def getNodeType(self):
         
@@ -442,7 +465,23 @@ class ListChoice(BasicListChoice):
 class MultiChoice(BasicListChoice):
     
     def __init__(self, name, ilist, **kargs):
-        BasicListChoice.__init__(self, name, ilist, **kargs)
+        kargs.pop('check', None)
+        BasicListChoice.__init__(self, name, ilist
+             , check=self._check_value, **kargs)
+    
+    def _check_value(self, value):
+        """This method checks if self._list contains 'value'
+        
+        The actual choice of the user has to be on the list.
+        @param value: Value to check.
+        @type value:  'value' is some sort of list.
+        @returns:     True if all values are on the list, else False.
+        """
+        
+        for v in value:
+            if v not in self._list:
+                return False
+        return True
     
     def chooseIndices(self, indices):
         """Choose value by indices in self._list
@@ -452,13 +491,22 @@ class MultiChoice(BasicListChoice):
         """
         values = []
         try:
+            print(indices)
             for index in indices:
                 value = self._list[index]
                 values.append(value)
-            self.setValue(values)
+            return self.setValue(values)
         except IndexError:
             self._log.debug("IndexError in ListChoice %s (index = %d)"
                 % (self._uname, index))
+    
+    def getIndices(self):
+        
+        value = self.readValue()
+        indices = []
+        for i in value:
+            indices.append(self._get_index(i))
+        return indices
     
     def getNodeType(self):
         
@@ -638,6 +686,9 @@ class ConfigScriptObj(object):
                  % (name, self._mod.uniquename()))
     
     def resolveDependencies(self):
+        
+        for node in self.nodes.values():
+            node.resolveFlags(self._mod)
         
         for frame in self.frames:
             frame.resolveDependencies(self._mod)
@@ -903,15 +954,32 @@ class ModuleNode(object):
                 return extmod
         return None
     
-    def getNode(self, node):
+    def getNode(self, node, inc_used=True):
+        """Tries to find 'node' and returns it.
         
+        @param node:     Identifies node that shall be returned.
+        @type node:      Type can be puser.Node, puser.ExternalNode
+                         or str (string means that it's a local node
+                         -> not an external node.
+        @param inc_used: If set to False, used modules will not be
+                         included. (This was necessary to stop modules
+                         from including used modules of their used 
+                         modules and so on...
+        @returns:        Returns node object.
+        """
         if isinstance(node, puser.Node):
             return self._cfg.nodes[node.name]
         elif isinstance(node, puser.ExternalNode):
             if node.module == self._uname:
                 return self._cfg.nodes[node.name]
-            else:
-                return self.getUsedModule(node).getNode(node)
+            elif inc_used:
+                return self.getUsedModule(node).getNode(node
+                     , inc_used=False)
+        elif isinstance(node, str):
+            return self._cfg.nodes[node]
+    
+    def getNodeNames(self):
+        return tuple(self._cfg.nodes.keys())
     
     def executeScript(self):
         
@@ -921,14 +989,13 @@ class ModuleNode(object):
     
     def resolveNodes(self):
         
-        # all modules must be executed.
+        # all modules must have been executed.
         self._cfg.resolveDependencies()
     
     def executeFrames(self):
         
         for frame in self._frames:
             frame.executeFunction(self._cfg)
-        
     
     def generateDst(self, dst):
         pass
@@ -938,9 +1005,8 @@ class ModuleNode(object):
         if len(self.targets) > 0:
             print("  .target-nodes:", file=file)
         for tget in self.targets:
-            print("    .node '%s':" % tget.modulepath()
+            print("    .dir '%s':" % tget.modulepath()
                  , file=file)
-            
             for j in tget.iterFiles():
                 print("      - '%s'" % j, file=file)
         if len(self._used_mods) > 0:
@@ -948,6 +1014,22 @@ class ModuleNode(object):
         for (mod, name) in self._used_mods:
             print("    - module '%s' as '%s'"
                  % (mod.uniquename(), name), file=file)
+        if self._cfg is not None:
+            print ("  .nodes:", file=file)
+            for node in self._cfg.nodes.values():
+                name = node.getName()
+                status = []
+                if node.isDisabled():
+                     status.append("disabled")
+                if node.isConfigured():
+                    status.append("configured (%s)"
+                         % str(node.readValue(formatted=True)))
+                else:
+                    status.append("not configured")
+                status.append("type='%s'" % node.getNodeType())
+                print("    - node '%s':" % name, file=file)
+                for i in status:
+                    print("      - %s" % i, file=file)
 
 
 class ModuleManager(object):
@@ -960,9 +1042,9 @@ class ModuleManager(object):
                     can be found.
         """
         self._src = src
-        self._mods = {}
+        self._mods = dict()
         self._log = plog.clone_system_logger(_PLOG_NAME)
-        self._config = {}
+        self._config = dict()
         self._targets = []
     
     def loadConfig(self, config):
@@ -1087,6 +1169,17 @@ class ModuleManager(object):
             self._log.debug("Now trying to initialize '%s'."
                  % unique_name)
             return mod
+    
+    def getModuleNames(self):
+        return tuple(self._mods.keys())
+    
+    def getModule(self, name):
+        
+        if name in self._mods:
+            return self._mods[name]
+        else:
+            # TODO: Exception
+            return None
     
     def dump(self):
         """Dumps current module-list.
