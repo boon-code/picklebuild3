@@ -15,13 +15,8 @@ b.add("Test/main.c")
 
 a = pmodules.ModuleManager('../test/src')
 a.initModules(b)
-
-a.dump()
-for i in a._mods:
-    a._mods[i].executeScript()
-
-c = a._mods['TEST']
-c.resolveNodes()
-
 man = a
-ctrl = cfgcontrol.ConfigController(Pbgui, man)
+try:
+    ctrl = cfgcontrol.ConfigController(Pbgui, man)
+except:
+    a.dump()

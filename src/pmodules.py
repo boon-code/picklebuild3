@@ -198,10 +198,11 @@ class BasicNode(object):
         """
         return (self._status & self.CONFIGURED == self.CONFIGURED)
     
-    def readValue(self):
+    def readValue(self, **ignore):
         """Reads configuration an returns value
-        
-        @returns: Returns value.
+        @param ignore: Ignored arguments used for compatiblity
+                       with BasicChoice
+        @returns:      Returns value.
         """
         return self._value
     
@@ -225,7 +226,7 @@ class BasicNode(object):
             self._value = self._overrider._value
     
     def isLike(self, node):
-        return (self.getNodeType == node.getNodeType)
+        return (self.getNodeType() == node.getNodeType())
 
 
 class BasicChoice(BasicNode):
@@ -274,9 +275,11 @@ class BasicChoice(BasicNode):
         
         @param value: New value that shall be configured.
         """
-        self._value = value
-        self._status |= self.CONFIGURED
-        self.notifyInfoSeeker()
+        if ((value != self._value)
+         or ((self._status & self.CONFIGURED) != self.CONFIGURED)):
+            self._value = value
+            self._status |= self.CONFIGURED
+            self.notifyInfoSeeker()
     
     def setValue(self, value):
         """Configures a new value (will be overriden)
@@ -286,10 +289,8 @@ class BasicChoice(BasicNode):
         if isinstance(self._check, collections.Callable):
             if self._check(value):
                 self._configure_value(value)
-                print("check True")
                 return True
             else:
-                print("check False")
                 return False
         else:
             self._configure_value(value)
@@ -300,8 +301,9 @@ class ConstValue(BasicNode):
     
     def __init__(self, name, value, **kgs):
         
-        BasicNode.__init__(name, **kgs)
+        BasicNode.__init__(self, name, **kgs)
         self._value = value
+        self._status = self.CONFIGURED
     
     def getNodeType(self):
         
@@ -359,7 +361,7 @@ class BasicListChoice(BasicChoice):
         self._list = tuple(ilist)
         
         if viewlist is not None:
-            tview = list(view)
+            tview = list(viewlist)
             if len(self._list) == len(tview):
                 self._format_view(tview)
                 self._view = tuple(tview)
@@ -391,7 +393,7 @@ class BasicListChoice(BasicChoice):
                          to the user.
         """
         for (i,v) in enumerate(viewlist):
-            cur_item = str(self_list[i])
+            cur_item = str(self._list[i])
             if v is not None:
                 viewlist[i] = "%s (value: %s)" % (v, cur_item)
             else:
@@ -491,7 +493,6 @@ class MultiChoice(BasicListChoice):
         """
         values = []
         try:
-            print(indices)
             for index in indices:
                 value = self._list[index]
                 values.append(value)
@@ -532,8 +533,9 @@ class DependencyFrame(object):
         """
         self._deps = deps
         self._func = None
-        self._status = 0
-        self._nodes = None
+        self._status = self.NEEDEXEC
+        self._nodes = dict()
+        self._frames = set()
     
     def __call__(self, func):
         """Saves the function that will be called.
@@ -568,6 +570,21 @@ class DependencyFrame(object):
         self._nodes[name] = node
         node.addInfoSeeker(self)
     
+    def addSubFrame(self, frame):
+        
+        self._frames.add(frame)
+    
+    def removeAllNodes(self, csf):
+        csf.removeNodes(self._nodes.keys())
+        self._nodes = dict()
+    
+    def removeFrames(self, csf):
+        for frame in self._frames:
+            frame.removeAllNodes(csf)
+            frame.removeFrames(csf)
+        
+        csf.removeFrames(self._frames)
+    
     def _is_available(self):
         for i in self._deps:
             if not i.isConfigured():
@@ -575,14 +592,17 @@ class DependencyFrame(object):
         return True
     
     def update(self):
-        print("check if I'm available.")
-        if self._is_available():
-            self._status |= self.NEEDEXEC
-        else:
-            self._status &= ~self.NEEDEXEC
+        print("check if I'm available.", self._func.__name__)
+        self._status |= self.NEEDEXEC
     
     def needsExecute(self):
         return (self._status & self.NEEDEXEC == self.NEEDEXEC)
+    
+    def canExecute(self):
+        ret = self.needsExecute()
+        ret = ret and self._is_available()
+        ret = ret and ((self._status & self.RESOLVED) == self.RESOLVED)
+        return ret
     
     def executeFunction(self, csf):
         """This method really executes the function (frame).
@@ -593,33 +613,26 @@ class DependencyFrame(object):
                     if a new node has been created.
         """
         # just to be sure
-        if not self.needsExecute():
+        if not self.canExecute():
             return None
-        
+        deps = (i.readValue() for i in self._deps)
+        print("DependencyFrame status: %s" % self._status)
         csf.installHook(self)
         if self._status & self.EXECUTED:
-            old_nodes = self._nodes
-            # Delete old nodes from csf.
-            csf.removeNodes(old_nodes.keys())
+            csf.saveAllConfig()
+            self.removeAllNodes(csf)
+            self.removeFrames(csf)
             
-            self._nodes = dict()
-            self._func(*self._deps)
+            self._frames = set()
+            
+            self._func(*deps)
             self._status |= (self.EXECUTED)
-            self._status &= (self.NEEDEXEC)
-            
-            for name in self._nodes:
-                new = self._nodes[name]
-                if name in old_nodes:
-                    old = old_nodes[name]
-                    if (old.isConfigured()
-                     and old.isLike(new)
-                     and isinstance(new, BasicChoice)):
-                         new.setValue(old.readValue)
+            self._status &= ~(self.NEEDEXEC)
         else:
             # TODO: Think about returning some value.
-            self._func(*self._deps)
+            self._func(*deps)
             self._status |= (self.EXECUTED)
-            self._status &= (self.NEEDEXEC)
+            self._status &= ~(self.NEEDEXEC)
 
 
 class ConfigScriptObj(object):
@@ -639,8 +652,9 @@ class ConfigScriptObj(object):
         self.nodes = None
         self.ext_write = None
         self.frames = None
+        self.config = None
     
-    def executeScript(self, scriptfile):
+    def executeScript(self, scriptfile, config=dict()):
         """This method really runs the configure script.
         
         This should create all objects.
@@ -649,6 +663,7 @@ class ConfigScriptObj(object):
         self.nodes = dict()
         self.ext_write = list()
         self.frames = list()
+        self.config = config
         self._current_frame = None
         
         cfg = puser.ScriptObject(self)
@@ -712,7 +727,18 @@ class ConfigScriptObj(object):
     def removeNodes(self, names):
         
         for name in names:
-            self._nodes.pop(name, None)
+            self.nodes.pop(name, None)
+    
+    def removeFrames(self, frames):
+        
+        for frame in frames:
+            self.frames.remove(frame)
+    
+    def saveAllConfig(self):
+        
+        for (n, o) in self.nodes.items():
+            if (not o.isDisabled()) and (o.isConfigured):
+                self.config[n] = o.readValue()
     
     def _add_node(self, name, node):
         """This method adds a new node (internal).
@@ -727,6 +753,21 @@ class ConfigScriptObj(object):
         
         if self._current_frame is not None:
             self._current_frame.addNode(name, node)
+            self.resolveDependencies()
+        
+        if isinstance(node, BasicChoice) and (name in self.config):
+            node.setValue(self.config[name])
+    
+    def _add_dep_frame(self, frame):
+        """This method adds a new Dependency Frame (internal).
+        
+        @param frame: New frame to add.
+        """
+        self.frames.append(frame)
+        
+        if self._current_frame is not None:
+            self._current_frame.addSubFrame(frame)
+            self.resolveDependencies()
     
     def define(self, name, value, options):
         """Creates a simple constant value (C #define).
@@ -803,7 +844,7 @@ class ConfigScriptObj(object):
         @returns:    The newly created frame object.
         """
         frame = DependencyFrame(deps)
-        self.frames.append(frame)
+        self._add_dep_frame(frame)
         return frame
     
     def override(self, ext, node, options):
@@ -994,7 +1035,7 @@ class ModuleNode(object):
     
     def executeFrames(self):
         
-        for frame in self._frames:
+        for frame in self._cfg.frames:
             frame.executeFunction(self._cfg)
     
     def generateDst(self, dst):
@@ -1095,6 +1136,12 @@ class ModuleManager(object):
         self._load_modules(targetlist, self._targets, '.')
         for (name, mod) in self._mods.items():
             mod.initialize(self._src, self._mods)
+        
+        for (name, mod) in self._mods.items():
+            mod.executeScript()
+        
+        for (name, mod) in self._mods.items():
+            mod.resolveNodes()
     
     def _load_modules(self, targetlist, parent, directory):
         """Loads all modules.

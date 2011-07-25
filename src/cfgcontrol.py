@@ -10,7 +10,11 @@ class ConfigController(object):
     def __init__(self, gui_class, mod_man):
         self._mman = mod_man
         self._gui = gui_class(self)
-        self._gui.initModules(mod_man.getModuleNames())
+        names = mod_man.getModuleNames()
+        self._gui.initModules(names)
+        #self._default = dict()
+        #for i in names:
+        #    self._default[i] = None
         self._cur_mod = None
         self._cur_node = None
         self._cur_value = None
@@ -26,7 +30,7 @@ class ConfigController(object):
     
     def finish(self):
         
-        self.applyChoice()
+        #self.applyChoice()
         
         #TODO: delete!
         self._mman.dump()
@@ -39,34 +43,60 @@ class ConfigController(object):
         self._mman.dump()
         pass
     
+    def iterColors(self, names):
+        for name in names:
+            node = self._cur_mod.getNode(name, False)
+            if node.isDisabled():
+                yield 'grey'
+            else:
+                if node.isConfigured():
+                    yield 'green'
+                else:
+                    yield 'black'
+    
     def chooseModule(self, name):
-        self.applyChoice()
+        #self.applyChoice()
         mod = self._mman.getModule(name)
-        
         if self._cur_mod is mod:
             return True
-        elif mod is None:
-            return False
         else:
             self._cur_node = None
             self._cur_mod = mod
             names = mod.getNodeNames()
-            self._gui.initNodes(names)
+            colors = tuple(self.iterColors(names))
+            self._gui.initNodes(names, colors)
+            self._do_update()
     
     def chooseNode(self, name):
-        self.applyChoice()
+        #self.applyChoice()
         node = self._cur_mod.getNode(name)
-        if self._cur_node is node:
-            return True
-        else:
-            self._cur_node = node
-            return self.loadChoice()
+        if self._cur_node is not None:
+            if self._cur_node.getName() == name:
+                return True
+        self._cur_node = node
+        return self.loadChoice()
     
     def applyChoice(self):
+        
         ret = self._real_apply()
-        # TODO: update!
-        print("do update")
+        self._do_update()
         return ret
+    
+    def _do_update(self):
+        
+        if self._cur_mod is not None:
+            self._cur_mod.executeFrames()
+            names = self._cur_mod.getNodeNames()
+            if self._cur_node is not None:
+                name = self._cur_node.getName()
+                self._cur_node = None
+                for (i, v) in enumerate(names):
+                    if v == name:
+                        default_index = i
+                        self._cur_node = self._cur_mod.getNode(v, False)
+            colors = tuple(self.iterColors(names))
+            print("bad _do_update")
+            self._gui.updateNodes(names, colors)
     
     def _real_apply(self):
         if None not in (self._cur_mod, self._cur_node, self._cur_value):
@@ -86,6 +116,8 @@ class ConfigController(object):
                 return node.chooseIndices(self._cur_value)
             else:
                 return True
+        
+        print("APPLY NOT DONE.")
         return False
     
     def loadChoice(self):
@@ -95,6 +127,7 @@ class ConfigController(object):
             nt = node.getNodeType()
             value = None
             if node.isDisabled():
+                print("print disabled")
                 self._gui.setConstNode("<<disabled>>")
             else:
                 if nt == pmodules.NT_CONST:
@@ -122,3 +155,4 @@ class ConfigController(object):
     def setChoice(self, choice):
         if None not in (self._cur_mod, self._cur_node):
             self._cur_value = choice
+            self.applyChoice()

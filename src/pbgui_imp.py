@@ -12,7 +12,6 @@ class Pbgui(CustomPbgui):
         root.bind("<<ListboxSelect>>", self._listbox_event_handler)
         root.bind("<KeyRelease>", self._testbox_event_handler)
         root.protocol("WM_DELETE_WINDOW", root.destroy)
-        self._reset_last_selection()
     
     # override
     def _butCancel_command(self, *args):
@@ -38,7 +37,8 @@ class Pbgui(CustomPbgui):
     
     #override
     def _butApply_command(self, *args):
-        print("apply: ", self._ctrl.applyChoice())
+        #print("apply: ", self._ctrl.applyChoice())
+        pass
     
     def _lsNodes_selected(self, node_name):
         self._ctrl.chooseNode(node_name)
@@ -48,11 +48,6 @@ class Pbgui(CustomPbgui):
     
     def _lsListconfig_selected(self, choice):
         self._ctrl.setChoice(choice)
-    
-    def _reset_last_selection(self):
-        self._last_node = None
-        self._last_module = None
-        self._last_option = tuple()
     
     def _int_list(self, str_list):
         return tuple((int(i) for i in str_list))
@@ -68,7 +63,7 @@ class Pbgui(CustomPbgui):
             cur_module = None
         else:
             cur_module = self._lsModules.get(cur_module)
-        
+            
         cur_node = self._lsNodes.curselection()
         if len(cur_node) != 1:
             cur_node = None
@@ -76,19 +71,16 @@ class Pbgui(CustomPbgui):
             cur_node = self._lsNodes.get(cur_node)
         
         cur_option = self._int_list(self._lsListconfig.curselection())
-        print("curr options", cur_option)
-        try:
-            #only one event can happen at one time....
-            if cur_module not in (self._last_module, None):
+        
+        if event.widget is self._lsModules:
+            if cur_module is not None:
                 self._lsModules_selected(cur_module)
-            elif cur_node not in (self._last_node, None):
+        elif event.widget is self._lsNodes:
+            if cur_node is not None:
                 self._lsNodes_selected(cur_node)
-            elif cur_option not in (self._last_option, None):
-                self._lsListconfig_selected(cur_option)
-        finally:
-            self._last_module = cur_module
-            self._last_node = cur_node
-            self._last_option = cur_option
+        elif event.widget is self._lsListconfig:
+            print("curr options", cur_option)
+            self._lsListconfig_selected(cur_option)
     
     def _testbox_event_handler(self, event):
         #maybe the rstrip is bad...
@@ -107,23 +99,51 @@ class Pbgui(CustomPbgui):
         for mod_name in names:
             self._lsModules.insert(tkinter.END, mod_name)
     
-    def initNodes(self, nodes):
-        """
+    def initNodes(self, nodes, colors):
+        """Initializes nodes list.
         Will be called by the controller if a new module has been chosen
         to configure.
-        @param nodes: Nodes of the module to add.
+        
+        Note that len(nodes) has to be len(colors)!
+        
+        @param nodes:  Nodes of the module to add.
+        @param colors: colors of the nodes to add.
         """
         self._reset_listbox(self._lsNodes)
         self._reset_config()
-        for node in nodes:
-            # self._lsNodes.itemconfig(index, foreground='grey')
-            self._lsNodes.insert(tkinter.END, node)
+        
+        for index in range(len(nodes)):
+            self._lsNodes.insert(tkinter.END, nodes[index])
+            self._lsNodes.itemconfig(str(index)
+                 , foreground=colors[index])
+    
+    def updateNodes(self, nodes, colors):
+        
+        cur_node = self._lsNodes.curselection()
+        
+        elm = self._lsNodes.get("0", tkinter.END)
+        max = len(elm) - 1
+        for (i, v) in enumerate(reversed(elm)):
+            if v not in nodes:
+                self._lsNodes.delete(str(max - i))
+        
+        for v in nodes:
+            if v not in elm:
+                self._lsNodes.insert(tkinter.END, v)
+        
+        elm = self._lsNodes.get("0", tkinter.END)
+        
+        for (i, v) in enumerate(elm):
+            ci = nodes.index(v)
+            self._lsNodes.itemconfig(str(i)
+                 , foreground=colors[ci])
     
     def _reset_listbox(self, lstbox):
         lstbox.delete("0", tkinter.END)
         lstbox.selection_clear("0", tkinter.END)
     
     def _reset_config(self):
+        self._txTextconfig.config(state='normal')
         self._txTextconfig.delete("1.0", tkinter.END)
         self._reset_listbox(self._lsListconfig)
         self._lsListconfig.config(state='disabled')

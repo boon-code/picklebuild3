@@ -97,7 +97,7 @@ class ScriptObject(object):
     
     def define(self, name, value, **options):
         mod = object.__getattribute__(self, '_mod')
-        return mod.define(name, options)
+        return mod.define(name, value, options)
     
     def string(self, name, **options):
         mod = object.__getattribute__(self, '_mod')
