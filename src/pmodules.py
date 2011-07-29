@@ -107,8 +107,7 @@ class BasicNode(object):
         @param name:  Name of this Node.
         @param help:  Optional help messages.
         @param flags: Flags which have to be true to enable this
-                      node. Note that flags are always automatically
-                      added to deps (sine this node depends on them).
+                      node.
         """
         self._name = name
         self._overrider = None
@@ -129,6 +128,11 @@ class BasicNode(object):
             self._unresolved_flags = set(flags)
     
     def getNodeType(self):
+        """This method returns the node type.
+        
+        It has to be implemented by every node-class.
+        @returns: A string that represents the type of this node.
+        """
         pass
     
     def getName(self):
@@ -157,6 +161,10 @@ class BasicNode(object):
     def resolveFlags(self, mod):
         """This method resolves flags.
         
+        Resolving means that it will be tried to find the name
+        (self._unresolved_flags only contains names) and if the node
+        could be found, it will be included in _flags.
+        
         @param mod: module node that is needed to resolve.
         """
         for flag in self._unresolved_flags:
@@ -167,6 +175,11 @@ class BasicNode(object):
     
     def isOverriden(self):
         """This method returns if this node is overriden.
+        
+        To be 'overriden' means that some other node (Only makes sense
+        for external nodes) will contain the value of this node.
+        Therefore this node can't be configured.
+        
         @returns: True if this one is overriden.
         """
         if self._overrider is None:
@@ -178,6 +191,7 @@ class BasicNode(object):
         """This method checks if the current node is disabled.
         
         Being disabled means that the input of this node is not needed.
+        TODO: maybe also include unresolved flags...
         
         @returns: Returns True if this node really is disabled,
                   else False.
@@ -191,7 +205,7 @@ class BasicNode(object):
         return False
     
     def isConfigured(self):
-        """This method checks if a value has been configured
+        """This method checks if a value has been configured.
         
         @returns: Returns True if value has been configured, else
                   False.
@@ -199,55 +213,71 @@ class BasicNode(object):
         return (self._status & self.CONFIGURED == self.CONFIGURED)
     
     def readValue(self, **ignore):
-        """Reads configuration an returns value
+        """Reads configuration an returns value.
         @param ignore: Ignored arguments used for compatiblity
-                       with BasicChoice
-        @returns:      Returns value.
+                       with BasicChoice. (This is necessary to
+                       take 'formatted' keyword argument of
+                       BasicChoice.
+        @returns:      Returns the current configured value.
         """
         return self._value
     
     def addInfoSeeker(self, seeker):
         """This method add a node that needs the input of this node.
         
-        @param node: The node that want to be notified if this one 
-                     will be set up.
+        The 'seeker' will be added to the _iseeker list and if this
+        node changes somehow, all 'seeker' in the list will be
+        notified (Their 'update' method will be called).
+        
+        @param seeker: The node that want to be notified if this one 
+                       will be set up.
         """
         self._iseeker.add(seeker)
     
     def notifyInfoSeeker(self):
+        """This method will notify all seeker objects in the list.
+        
+        This method should always be called if (f.e. the value of
+        this object changes).
+        Note: This method won't be called by this class. It has to be
+              implemented by subclasses.
+        """
         
         for seeker in self._iseeker:
             seeker.update()
     
     def update(self):
+        """This method could be called by notifyInfoSeeker.
         
+        If this node has been added to some other node as info-seeker
+        then this node will be informed (which means that this method
+        will be called).
+        """
         if self._overrider:
             self._status = self._overrider._status
             self._value = self._overrider._value
-    
-    def isLike(self, node):
-        return (self.getNodeType() == node.getNodeType())
 
 
 class BasicChoice(BasicNode):
-    """This is the root node, which covers basic properties.
+    """Base class for all choices, derived from BasicNode.
     
-    All node typs are derived from this one. It covers basic features
-    like handle dependencies (nodes, that have to be set up before
-    this one can be configured), flags (can be used to disable 
-    many settings at once), help message, format function,
-    check function etc...
+    All choice-node typs are derived from this one. It just
+    introduces format and check function and overrides readValue
+    method (to support format function) and setValue method
+    (to support check function).
     """
     
-    __slots__ = ('_name', '_format')
+    __slots__ = ('_check', '_format')
     
     def __init__(self, name, check=None, format=None, **kgs):
-        """Creates a new node with name 'name'.
+        """Creates a new choice-node with name 'name'.
         
         @param name:    Name of this node.
         @param check:   A check method (checks applied value).
         @param format:  This method formats the actual value.
-        @param kgs:     Collects unsupported arguments.
+        @param kgs:     Collects unsupported arguments (or 
+                        arguments that will be collected by
+                        BasicNode).
         """
         BasicNode.__init__(self, name, **kgs)
         self._check = check
@@ -258,10 +288,10 @@ class BasicChoice(BasicNode):
         
         @param formatted: If formatted is True, the current value will
                           be formatted by the format method 
-                          (see __init__).
+                          (see __init__) if set.
         @returns: Returns value.
         """
-        value = BasicNode.readValue(self)
+        value = super().readValue()
         if formatted and isinstance(self._format, collections.Callable):
             return self._format(value)
         return value
@@ -282,9 +312,11 @@ class BasicChoice(BasicNode):
             self.notifyInfoSeeker()
     
     def setValue(self, value):
-        """Configures a new value (will be overriden)
+        """Configures a new value.
         
         @param value: New value that will be set.
+        @returns:     Returns True if value could be set, else False
+                      (If for example check function returns False)
         """
         if isinstance(self._check, collections.Callable):
             if self._check(value):
@@ -298,31 +330,79 @@ class BasicChoice(BasicNode):
 
 
 class ConstValue(BasicNode):
+    """This node just represents a fixed value (no choice).
+    
+    This Node is used to represent a simple 'define'. The value
+    has to be set at creation.
+    """
+    
+    __slots__ = tuple()
     
     def __init__(self, name, value, **kgs):
+        """Initializes a new instance.
         
+        @param name:  The name of this node.
+        @param value: The actual value of this node.
+        @param kgs:   Collects unsupported parameters
+                      (or parameters that are needed by 
+                      a base class)
+        """
         BasicNode.__init__(self, name, **kgs)
         self._value = value
         self._status = self.CONFIGURED
     
     def getNodeType(self):
+        """This method returns the node type.
         
+        @returns: A string that represents the type of this node.
+        """
         return NT_CONST
 
 
 class ExprChoice(BasicChoice):
+    """This class represents a simple Expression.
+    
+    The expression will simply be entered by the user. Since 
+    this class is derived from BasicChoice, it also supports 
+    format, check, help, ...
+    """
+    
+    __slots__ = tuple()
     
     def __init__(self, name, **kargs):
+        """Initializes a new node.
+        
+        @param name: The name of this node.
+        @param kgs:  Collects unsupported parameters
+                     (or parameters that are needed by 
+                     a base class)
+        """
         BasicChoice.__init__(self, name, **kargs)
     
     def getNodeType(self):
+        """This method returns the node type.
         
+        @returns: A string that represents the type of this node.
+        """
         return NT_TEXT
 
 
 class InputChoice(BasicChoice):
+    """This class represents a simple Text Input.
     
+    This is just the same as ExprChoice, but it has got a
+    default format function (and won't take any other).
+    
+    """
     def __init__(self, name, **kargs):
+        """Initializes a new node.
+        
+        @param name:  Name of this node.
+        @param kargs: Collects unsupported parameters
+                      (or parameters that are needed by 
+                      a base class)
+                      Note that 'format' will be ignored.
+        """
         kargs.pop('format', None)
         self._format = self._format_value
         BasicChoice.__init__(self, name, **kargs)
@@ -330,8 +410,10 @@ class InputChoice(BasicChoice):
     def _format_value(self, value):
         """This method formats 'value'
         
-        It checks that no ' " ' characters mess up the string constant
-        and adds them at the start and at the end of the string.
+        It checks that no ' " ' characters mess up the 
+        string constant and adds them at the start and 
+        at the end of the string.
+        
         @param value: Value to format.
         @returns:     Formatted string.
         """
@@ -340,26 +422,37 @@ class InputChoice(BasicChoice):
         return "".join(('"', value, '"'))
     
     def getNodeType(self):
+        """This method returns the node type.
         
+        @returns: A string that represents the type of this node.
+        """
         return NT_TEXT
 
 
 class BasicListChoice(BasicChoice):
+    """This is the root of all list like choice nodes.
     
+    This base class can be used, to implement some list
+    like choice node. The user can choose from this list.
+    This class offers some basic method and some new concepts.
+    For example: It's possible to add a viewlist. This list has
+    to have exactly the same amount of items as the input list
+    (from which the user has to choose). Instead of just showing
+    the input list, the viewlist will be used (in fact ilist
+    will be included).
+    """
     def __init__(self, name, ilist, viewlist=None, **kargs):
         """Creates a new list node with name 'name'.
          
         @param name:     Name of node to create.
         @param ilist:    List object to choose from. Has to be a list
-                         or a generator object.
-        @param check:    
+                         or a generator object.   
         @param viewlist: Optional viewlist (will be shown to the user).
-        @param kargs:    Additional arguments (see BasicChoice). 
+        @param kargs:    Additional arguments (see BasicChoice).
         """
         BasicChoice.__init__(self, name, **kargs)
         self._view = None
         self._list = tuple(ilist)
-        
         if viewlist is not None:
             tview = list(viewlist)
             if len(self._list) == len(tview):
@@ -386,7 +479,6 @@ class BasicListChoice(BasicChoice):
     def _format_view(self, viewlist):
         """Creates a nice list to choose from.
         
-        
         @param viewlist: The view list has got some symbolic
                          names for not easily readable values.
         @returns:        A tuple with the viewlist that will be shown
@@ -398,7 +490,6 @@ class BasicListChoice(BasicChoice):
                 viewlist[i] = "%s (value: %s)" % (v, cur_item)
             else:
                 viewlist[i] = "(value: %s)" % cur_item
-        
         return tuple(viewlist)
     
     def getViewList(self):
@@ -412,7 +503,14 @@ class BasicListChoice(BasicChoice):
         return self._view
     
     def _get_index(self, value):
+        """This method tries to find 'value' in list.
         
+        Note: Be carefull if you call this method.
+        
+        @param value: The value this method returns the
+                      index for.
+        @returns:     The index of value (in the list).
+        """
         for (i, v) in enumerate(self._list):
             if v == value:
                 return i
@@ -427,8 +525,23 @@ class BasicListChoice(BasicChoice):
 
 
 class ListChoice(BasicListChoice):
+    """This class represents a simple list to choose from.
+    
+    Only one item can be chosen (from the list). 
+    """
     
     def __init__(self, name, ilist, **kargs):
+        """Initializes a new instance.
+        
+        @param name:    Name of this node.
+        @param ilist:   List to choose from.
+        @param **kargs: Other arguments that are needed
+                        by some base class, or ignored.
+                        Especially 'check' will be ignored
+                        since the check function has to 
+                        check if the list contains the
+                        value.
+        """
         kargs.pop('check', None)
         BasicListChoice.__init__(self, name, ilist
              , check=self._check_value, **kargs)
@@ -445,6 +558,7 @@ class ListChoice(BasicListChoice):
     def chooseByIndex(self, index):
         """Choose value by the index in self._list
         
+        This should simplify to set a valid value.
         @param index: Index of element that should be configured
                       (starting from 0).
         """
@@ -456,17 +570,42 @@ class ListChoice(BasicListChoice):
                 % (self._uname, index))
     
     def getIndex(self):
+        """Returns the current index.
         
-        return self._get_index(self.readValue())
+        @returns: Returns the index of the current value
+                  (or None if not set).
+        """
+        if self.isConfigured():
+            return self._get_index(self.readValue())
     
     def getNodeType(self):
+        """This method returns the node type.
         
+        @returns: A string that represents the type of this node.
+        """
         return NT_LIST
 
 
 class MultiChoice(BasicListChoice):
+    """This class represents a multi-choice.
+    
+    Multi-choice: You can choose from a list. It's
+    valid to choose all items or even none.
+    """
     
     def __init__(self, name, ilist, **kargs):
+        """Initializes a new instance.
+        
+        @param name:    The name of this node.
+        @param ilist:   A list to choose from.
+        @param **kargs: Other arguments that are needed
+                        by some base class, or ignored.
+                        Especially 'check' will be ignored
+                        since the check function has to 
+                        check if the list contains the
+                        value.
+        
+        """
         kargs.pop('check', None)
         BasicListChoice.__init__(self, name, ilist
              , check=self._check_value, **kargs)
@@ -488,6 +627,9 @@ class MultiChoice(BasicListChoice):
     def chooseIndices(self, indices):
         """Choose value by indices in self._list
         
+        Note: Invalid indices will be ignored.
+        TODO: Maybe change this behaviour.
+        
         @param indices: Tuple of all chosen indices
                         (index starts from 0).
         """
@@ -502,7 +644,11 @@ class MultiChoice(BasicListChoice):
                 % (self._uname, index))
     
     def getIndices(self):
+        """Tries to retrieve the current indices.
         
+        @returns: Returns indices of all items that 
+                  have been chosen.
+        """
         value = self.readValue()
         indices = []
         for i in value:
@@ -510,12 +656,24 @@ class MultiChoice(BasicListChoice):
         return indices
     
     def getNodeType(self):
+        """This method returns the node type.
         
+        @returns: A string that represents the type of this node.
+        """
         return NT_MULTI
 
 
 class DependencyFrame(object):
-    "Contains dependent nodes."
+    """Wraps around a method that depends on some nodes.
+    
+    The method will be executed each time some depenent node
+    changes its value. I will refere to objects of this class
+    as 'frames'. Frames can have sub-frames, that will be
+    recreated each time the function (that has been set up
+    by __call__) has to be executed.
+    
+    TODO: Remove AVAILABLE if it's not used.
+    """
     
     RESOLVED = 1
     AVAILABLE = 2
@@ -527,8 +685,8 @@ class DependencyFrame(object):
         
         Note that this frame is not fully set up yet. It has to be
         'called' (__call__) to really be initialized.
-        All dependencies (deps) have to be resolved (if they are 
-        ExternalNodes.).
+        All dependencies (deps) have to be resolved.
+        
         @param deps: Dependencies of this frame.
         """
         self._deps = deps
@@ -552,7 +710,17 @@ class DependencyFrame(object):
             self._func = func
     
     def resolveDependencies(self, mod):
+        """This method tries to find all nodes in 'deps'.
         
+        Since self._deps only contains names of nodes,
+        they have to be replaced by the real objects.
+        
+        TODO: I should think about not resolving every node.
+              Maybe external nodes are not yet available.
+        
+        @param mod: The module node that includes this 
+                    frame. (used to resolve dependencies).
+        """
         deps = set()
         for dep in self._deps:
             if (isinstance(dep, puser.Node)
@@ -566,39 +734,79 @@ class DependencyFrame(object):
         self._status |= self.RESOLVED
     
     def addNode(self, name, node):
+        """Adds a new node to this frame.
         
+        This method will be called by ConfigScriptObj if a
+        new node has been created. It should only be called 
+        by that object.
+        
+        Important: This frame has to know about all changes of 
+                   node.
+        
+        @param name: name of the new node.
+        @param node: the node object with name 'name'
+        """
         self._nodes[name] = node
         node.addInfoSeeker(self)
     
     def addSubFrame(self, frame):
+        """Adds a new frame to this frame.
         
+        @param frame: Frame object.
+        """
         self._frames.add(frame)
     
-    def removeAllNodes(self, csf):
+    def _remove_all_nodes(self, csf):
+        """This method removes all node.
+        
+        Should only be called by this class.
+        @param csf: The current ConfigScriptObj.
+        """
         csf.removeNodes(self._nodes.keys())
         self._nodes = dict()
     
-    def removeFrames(self, csf):
+    def _remove_frames(self, csf):
+        """This method removes all sub-frames of this frame.
+        
+        @param csf: The current ConfigScriptObj.
+        """
         for frame in self._frames:
-            frame.removeAllNodes(csf)
-            frame.removeFrames(csf)
+            frame._remove_all_nodes(csf)
+            frame._remove_frames(csf)
         
         csf.removeFrames(self._frames)
     
     def _is_available(self):
+        """This method checks if all dependent nodes are configured.
+        
+        @returns: Returns True if all deps are configured, else
+                  False.
+        """
         for i in self._deps:
             if not i.isConfigured():
                 return False
         return True
     
     def update(self):
+        "This method will be called if a dep. changes it value."
         print("check if I'm available.", self._func.__name__)
         self._status |= self.NEEDEXEC
     
     def needsExecute(self):
+        """This method returns if this frame has to be executed.
+        
+        @returns: True if this frame needs to be executed.
+        """
         return (self._status & self.NEEDEXEC == self.NEEDEXEC)
     
     def canExecute(self):
+        """This method returns if the frame can be executed.
+        
+        canExecuted means that it needs to be executed and
+        is available and resolved.
+        
+        @returns: True if this frame can be executed.
+        """
         ret = self.needsExecute()
         ret = ret and self._is_available()
         ret = ret and ((self._status & self.RESOLVED) == self.RESOLVED)
@@ -620,8 +828,8 @@ class DependencyFrame(object):
         csf.installHook(self)
         if self._status & self.EXECUTED:
             csf.saveAllConfig()
-            self.removeAllNodes(csf)
-            self.removeFrames(csf)
+            self._remove_all_nodes(csf)
+            self._remove_frames(csf)
             
             self._frames = set()
             
