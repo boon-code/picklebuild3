@@ -5,6 +5,14 @@ from pexcept import NotYetWorkingWarning
 import pmodules
 
 
+"""
+Copyright (c) 2011 Manuel Huber.
+License: GPLv3.
+"""
+
+__author__ = 'Manuel Huber'
+__license__ = 'GPLv3'
+
 class ConfigController(object):
     
     def __init__(self, gui_class, mod_man):

@@ -1,9 +1,49 @@
+# -*- coding: utf-8 -*-
+
+"""
+This file contains objects that are used by the external script
+file. Only these objects can directly be modified by the
+script.
+An instance of ScriptObject has to be used by the script to create
+nodes. To reference these nodes, ScriptObject returns instances of
+Node. These objects only contain the name of the node.
+External Nodes can only be used through an ExternalScriptObject
+which can be accessed by using extension commands. Since external
+references have to be resolved stepwise after they have been set up,
+one can simply access external nodes just like it was a member of
+ExternalScriptObject. These references will be resolved afterwards
+and if not possible, an error should occur.
+
+TODO: Some parts of the text above haven't been implemented yet. 
+Especially resolving doesn't work stepwise yet.
+
+Copyright (c) 2011 Manuel Huber.
+License: GPLv3.
+"""
+
+__author__ = 'Manuel Huber'
+__license__ = 'GPLv3'
+
 class HiddenObject(object):
+    """This is a base class for classes with hidden members.
+    
+    Subclasses of this class will hide it's members except 
+    a given subset.
+    """
     
     def __init__(self, objects):
+        """This initializes a new instances.
+        
+        @param objects: A dict that contains all members that
+                        shall be accessable.
+        """
         self._objs = objects
     
     def __getattribute__(self, attr_name):
+        """Reimplemented getattribute mechanism to hide members.
+        
+        @param attr_name: name of element that shall be accessed.
+        """
         objs = object.__getattribute__(self, '_objs')
         if attr_name in objs:
             return objs[attr_name]
@@ -14,21 +54,47 @@ class HiddenObject(object):
                 % (str(class_.__name__), attr_name))
     
     def __dir__(self):
+        """Reimplement __dir__ method to hide members.
+        
+        Only certain members (in _objs dict) will be shown.
+        """
         objs = object.__getattribute__(self, '_objs')
         return list(objs.keys())
 
 
 class Node(HiddenObject):
+    """This class is used to reference nodes.
+    
+    This object will just contain the name of the node that it
+    references.
+    """
     
     def __init__(self, name):
+        """Initializes a new instance.
+        
+        @param name: Name of this node.
+        """
         d = {'name' : name}
         HiddenObject.__init__(self, d)
 
 
 class ExternalNode(HiddenObject):
+    """This class is used to reference external nodes.
+    
+    External nodes are nodes from 'used' modules (extension).
+    This is not the same as 'Node', since these objects don't 
+    actual reference a certain object. External nodes have to be
+    matched to existing nodes as soon as the referenced module
+    will be configured.
+    """
     
     def __init__(self, mod_name, name):
+        """Initializes a new instances.
         
+        @param mod_name: Name of the external module that this node
+                         references to.
+        @param name:     Name of the node.
+        """
         d = {'name' : name, 'module' : mod_name}
         HiddenObject.__init__(self, d)
 

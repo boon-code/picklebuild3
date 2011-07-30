@@ -10,6 +10,14 @@ import targets
 import puser
 from pexcept import NotYetWorkingWarning
 
+"""
+Copyright (c) 2011 Manuel Huber.
+License: GPLv3.
+"""
+
+__author__ = 'Manuel Huber'
+__license__ = 'GPLv3'
+
 # node types:
 NT_TEXT = 'text'
 NT_LIST = 'list'
@@ -688,6 +696,8 @@ class DependencyFrame(object):
         All dependencies (deps) have to be resolved.
         
         @param deps: Dependencies of this frame.
+        @type deps:  Normally this will be a list of 'Node' objects
+                     (or some other iterable object).
         """
         self._deps = deps
         self._func = None

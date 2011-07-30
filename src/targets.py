@@ -2,7 +2,23 @@ import os.path
 import warnings
 
 
+"""
+Copyright (c) 2011 Manuel Huber.
+License: GPLv3.
+"""
+
+__author__ = 'Manuel Huber'
+__license__ = 'GPLv3'
+
+
 class SkippedTargetWarning(UserWarning):
+    """Warns about invalid file-paths.
+    
+    Invalid file-paths are for example:
+     * Files that don't share the same root directory (the source
+       directory).
+     * Paths that are no regular files.
+    """
     pass
 
 

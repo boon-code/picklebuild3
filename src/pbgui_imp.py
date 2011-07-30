@@ -2,6 +2,15 @@
 from pbgui import CustomPbgui
 import tkinter
 
+
+"""
+Copyright (c) 2011 Manuel Huber.
+License: GPLv3.
+"""
+
+__author__ = 'Manuel Huber'
+__license__ = 'GPLv3'
+
 class Pbgui(CustomPbgui):
     
     def __init__(self, controller):
