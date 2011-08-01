@@ -15,17 +15,23 @@ class SkippedTargetWarning(UserWarning):
     """Warns about invalid file-paths.
     
     Invalid file-paths are for example:
-     * Files that don't share the same root directory (the source
+     - Files that don't share the same root directory (the source
        directory).
-     * Paths that are no regular files.
+     - Paths that are no regular files.
     """
     pass
 
 
 class TargetNode(object):
+    """This class represents one target directory.
+    
+    This node will only contain files that belong to the same
+    directory.
+    """
     
     def __init__(self, module_path):
-        """
+        """Initializes a new instance.
+        
         This TargetNode will be indentified by it's module path
         (relative to the src directory)
         @param module_path: path to this directory (including this
@@ -35,15 +41,16 @@ class TargetNode(object):
         self._target_names = []
             
     def add(self, filename):
-        """
+        """Adds a file to this node.
+        
         This method adds a new file to this TargetNode.
         @param filename: File name which will be added.
         """
         self._target_names.append(filename)
     
     def modulepath(self, src=None):
-        """
-        This method can be used to retrieve the module path.
+        """This method can be used to retrieve the module path.
+        
         @param src: src will be appended to the module path.
         @returns: The module path.
         """
@@ -54,8 +61,7 @@ class TargetNode(object):
             return self._path
     
     def iterFiles(self, src=None):
-        """
-        This generator should be used to get all filenames.
+        """This generator should be used to get all filenames.
         
         @param src: The source directory name that will be appended to
                     the path and name. 
@@ -67,16 +73,25 @@ class TargetNode(object):
             yield os.path.normpath(filepath)
 
 
-class TargetList(object):
+class TargetTree(object):
+    """This class represents a list of target directories.
     
-    def __init__(self, source_dir):
+    The target directories (class: TargetNode) contains all files
+    in that directory that have to be processed.
+    If you iterate through all of them, you get the target-tree.
+    """
+    
+    def __init__(self, rootdir):
+        """Initializes a new instance.
         
-        self._src = source_dir
+        @param rootdir: Root directory of this tree.
+        """
+        self._src = rootdir
         self._nodes = {}
     
     def add(self, filepath):
-        """
-        Adds a new path to this object.
+        """Adds a new path to this object.
+        
         Only relative paths relative to src
         will be accepted.
         

@@ -247,8 +247,9 @@ class BasicNode(object):
         
         This method should always be called if (f.e. the value of
         this object changes).
+        
         Note: This method won't be called by this class. It has to be
-              implemented by subclasses.
+        implemented by subclasses.
         """
         
         for seeker in self._iseeker:
@@ -380,10 +381,10 @@ class ExprChoice(BasicChoice):
     def __init__(self, name, **kargs):
         """Initializes a new node.
         
-        @param name: The name of this node.
-        @param kgs:  Collects unsupported parameters
-                     (or parameters that are needed by 
-                     a base class)
+        @param name:  The name of this node.
+        @param kargs: Collects unsupported parameters
+                      (or parameters that are needed by 
+                      a base class)
         """
         BasicChoice.__init__(self, name, **kargs)
     
@@ -476,11 +477,11 @@ class BasicListChoice(BasicChoice):
     def _create_view_from_list(self):
         """Creates a sring list from self._list
         
-        TODO:       Maybe I should add a type check and handle
-                    dictionarys a little bit different...
+        TODO: Maybe I should add a type check and handle
+        dictionarys a little bit different...
         
-        @returns:   Returns a tuple that contains all items of
-                    self._list as string.
+        @returns: Returns a tuple that contains all items of
+                  self._list as string.
         """
         return tuple(str(i) for i in self._list)
     
@@ -541,14 +542,14 @@ class ListChoice(BasicListChoice):
     def __init__(self, name, ilist, **kargs):
         """Initializes a new instance.
         
-        @param name:    Name of this node.
-        @param ilist:   List to choose from.
-        @param **kargs: Other arguments that are needed
-                        by some base class, or ignored.
-                        Especially 'check' will be ignored
-                        since the check function has to 
-                        check if the list contains the
-                        value.
+        @param name:  Name of this node.
+        @param ilist: List to choose from.
+        @param kargs: Other arguments that are needed
+                      by some base class, or ignored.
+                      Especially 'check' will be ignored
+                      since the check function has to 
+                      check if the list contains the
+                      value.
         """
         kargs.pop('check', None)
         BasicListChoice.__init__(self, name, ilist
@@ -604,14 +605,14 @@ class MultiChoice(BasicListChoice):
     def __init__(self, name, ilist, **kargs):
         """Initializes a new instance.
         
-        @param name:    The name of this node.
-        @param ilist:   A list to choose from.
-        @param **kargs: Other arguments that are needed
-                        by some base class, or ignored.
-                        Especially 'check' will be ignored
-                        since the check function has to 
-                        check if the list contains the
-                        value.
+        @param name:  The name of this node.
+        @param ilist: A list to choose from.
+        @param kargs: Other arguments that are needed
+                      by some base class, or ignored.
+                      Especially 'check' will be ignored
+                      since the check function has to 
+                      check if the list contains the
+                      value.
         
         """
         kargs.pop('check', None)
@@ -726,7 +727,7 @@ class DependencyFrame(object):
         they have to be replaced by the real objects.
         
         TODO: I should think about not resolving every node.
-              Maybe external nodes are not yet available.
+        Maybe external nodes are not yet available.
         
         @param mod: The module node that includes this 
                     frame. (used to resolve dependencies).
@@ -751,7 +752,7 @@ class DependencyFrame(object):
         by that object.
         
         Important: This frame has to know about all changes of 
-                   node.
+        node.
         
         @param name: name of the new node.
         @param node: the node object with name 'name'
@@ -908,8 +909,8 @@ class ConfigScriptObj(object):
         exists.
         
         @param name:          Name that should be found in some list.
-        @param list_to_check: List that should be checked (if None
-                              self._nodes will be checked).
+        @param list_to_check: List that should be checked (if None, 
+                              self.nodes will be checked).
         """
         if list_to_check is None:
             list_to_check = self.nodes
@@ -937,7 +938,7 @@ class ConfigScriptObj(object):
         
         Every time a new node has been created, 'frame' will be
         notified.
-        @param frame: The DependencyFrame that is about ob beeing
+        @param frame: The DependencyFrame that is about of beeing
                       executed.
         """
         self._current_frame = frame
@@ -1341,7 +1342,7 @@ class ModuleManager(object):
         """First loads all modules and afterwards initializes them.
         
         (Extension commands will be processed and connections to 
-         other modules should be created here.)
+        other modules should be created here.)
         All targets will be added to the appropriate module.
         Note that modules can have sub-directories and sub-modules.
         If a sub-directory doesn't contain a configure_XXX.py script,
@@ -1366,11 +1367,11 @@ class ModuleManager(object):
         
         This method will be recursively called for each subdirectory
         and load all modules found.
-        @param targetlist:  This should be an instance of TreeList
+        @param targetlist:  This should be an instance of TargetTree
                             and contain all targets.
         @param parent:      The target list of a parent module.
                             (Note that this can also be 
-                             ModuleManager._targets).
+                            ModuleManager._targets).
         """
         directory = os.path.normpath(directory)
         path = os.path.join(self._src, directory)

@@ -3,7 +3,7 @@ import pmodules
 import cfgcontrol
 from pbgui_imp import Pbgui
 
-b = targets.TargetList('../test/src')
+b = targets.TargetTree('../test/src')
 b.add("ha.txt")
 b.add("blop/bla.txt")
 b.add("haha/huibuh.txt")
