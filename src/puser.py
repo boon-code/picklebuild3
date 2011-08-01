@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+# Copyright (c) 2011 Manuel Huber.
+# License: GPLv3.
 
 """
 This file contains objects that are used by the external script
@@ -16,9 +18,6 @@ and if not possible, an error should occur.
 
 TODO: Some parts of the text above haven't been implemented yet. 
 Especially resolving doesn't work stepwise yet.
-
-Copyright (c) 2011 Manuel Huber.
-License: GPLv3.
 """
 
 __author__ = 'Manuel Huber'

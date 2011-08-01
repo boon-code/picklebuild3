@@ -1,13 +1,15 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2011 Manuel Huber.
+# License: GPLv3.
+
 from warnings import warn
 import collections
 
 from pexcept import NotYetWorkingWarning
 import pmodules
 
-
 """
-Copyright (c) 2011 Manuel Huber.
-License: GPLv3.
+Controller part of MVC pattern.
 """
 
 __author__ = 'Manuel Huber'

@@ -1,10 +1,13 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2011 Manuel Huber.
+# License: GPLv3.
+
 import os.path
 import warnings
 
 
 """
-Copyright (c) 2011 Manuel Huber.
-License: GPLv3.
+This module implements basic classes to handle target-files.
 """
 
 __author__ = 'Manuel Huber'

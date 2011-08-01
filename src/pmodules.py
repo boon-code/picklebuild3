@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+# Copyright (c) 2011 Manuel Huber.
+# License: GPLv3.
+
 import os
 import re
 import sys
@@ -11,8 +15,8 @@ import puser
 from pexcept import NotYetWorkingWarning
 
 """
-Copyright (c) 2011 Manuel Huber.
-License: GPLv3.
+This module is all about the logic of the program and it's
+data structure.
 """
 
 __author__ = 'Manuel Huber'

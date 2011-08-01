@@ -1,4 +1,6 @@
-
+# -*- coding: utf-8 -*-
+# Copyright (c) 2011 Manuel Huber.
+# License: GPLv3.
 
 """
 This module is about logging. It should be extented by
