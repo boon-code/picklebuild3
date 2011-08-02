@@ -15,6 +15,7 @@ b.add("Test/main.c")
 
 a = pmodules.ModuleManager('../test/src')
 a.initModules(b)
+a.loadNodes()
 man = a
 try:
     ctrl = cfgcontrol.ConfigController(Pbgui, man)

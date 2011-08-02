@@ -7,6 +7,7 @@ import collections
 
 from pexcept import NotYetWorkingWarning
 import pmodules
+import pfile
 
 """
 Controller part of MVC pattern.
@@ -32,11 +33,18 @@ class ConfigController(object):
     
     # called by gui:
     
-    def loadConfig(self, filename):
-        pass
+    def loadConfig(self, path):
+        self._cur_mod = None
+        self._cur_node = None
+        self._cur_value = None
+        names = self._mman.getModuleNames()
+        self._gui.initModules(names)
+        config = pfile.loadConfigFile(path)
+        self._mman.loadNodes(config=config)
     
-    def saveConfig(self, filename):
-        pass
+    def saveConfig(self, path):
+        config = self._mman.collectConfig()
+        pfile.saveConfigFile(path, config)
     
     def finish(self):
         

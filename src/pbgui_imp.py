@@ -2,8 +2,16 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) 2011 Manuel Huber.
 # License: GPLv3.
+
 from pbgui import CustomPbgui
-import tkinter
+import sys
+
+if sys.version_info[0] == 3:
+    import tkinter
+    from tkinter.filedialog import *
+elif sys.version_info[0] == 2:
+    import Tkinter
+    from tkFileDialog import *
 
 """
 Implements methods for pbgui.CustomPbgui.
@@ -21,6 +29,10 @@ class Pbgui(CustomPbgui):
         self._ctrl = controller
         root.bind("<<ListboxSelect>>", self._listbox_event_handler)
         root.bind("<KeyRelease>", self._testbox_event_handler)
+        self._sclModules["command"] = self._lsModules.yview
+        self._sclNodes["command"] = self._lsNodes.yview
+        self._sclListconfig["command"] = self._lsListconfig.yview
+        self._sclTextconfig["command"] = self._txTextconfig.yview
         root.protocol("WM_DELETE_WINDOW", root.destroy)
     
     # override
@@ -35,11 +47,19 @@ class Pbgui(CustomPbgui):
     
     #override
     def _butLoadfile_command(self, *args):
-        pass
+        path = askopenfilename(filetypes = [('config', '*.pbc')]
+             , title = "open file")
+        
+        if path != '':
+            self._ctrl.loadConfig(path)
     
     #override
     def _butSavefile_command(self, *args):
-        pass
+        path = asksaveasfilename(filetypes = [('config', '*.pbc')]
+             ,title = "save file")
+        
+        if path != '':
+            self._ctrl.saveConfig(path)
     
     #override
     def _butReset_command(self, *args):
@@ -68,6 +88,7 @@ class Pbgui(CustomPbgui):
         event.
         @param event: Additional event arguments (Not used).
         """
+        
         cur_module = self._lsModules.curselection()
         if len(cur_module) != 1:
             cur_module = None
@@ -149,8 +170,8 @@ class Pbgui(CustomPbgui):
                  , foreground=colors[ci])
     
     def _reset_listbox(self, lstbox):
-        lstbox.delete("0", tkinter.END)
         lstbox.selection_clear("0", tkinter.END)
+        lstbox.delete("0", tkinter.END)
     
     def _reset_config(self):
         self._txTextconfig.config(state='normal')

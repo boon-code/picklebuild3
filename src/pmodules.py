@@ -877,11 +877,12 @@ class ConfigScriptObj(object):
         self.frames = None
         self.config = None
     
-    def executeScript(self, scriptfile, config=dict()):
+    def executeScript(self, scriptfile, config):
         """This method really runs the configure script.
         
         This should create all objects.
         @param scriptfile: Full path to the scriptfile.
+        @param config:     Current configuartion.
         """
         self.nodes = dict()
         self.ext_write = list()
@@ -1196,6 +1197,15 @@ class ModuleNode(object):
                 return True
         return False
     
+    def getConfigDict(self, formatted=False):
+        
+        # check self._cfg (executed...)
+        mod_config = dict()
+        for (name, node) in self._cfg.nodes.items():
+            if (node.isConfigured()) and (not node.isDisabled()):
+                mod_config[name] = node.readValue(formatted=formatted)
+        return mod_config
+    
     def getDependencies(self):
         return (i for i in self._used_mods)
     
@@ -1245,10 +1255,10 @@ class ModuleNode(object):
     def getNodeNames(self):
         return tuple(self._cfg.nodes.keys())
     
-    def executeScript(self):
+    def executeScript(self, config=dict()):
         
         cfg = ConfigScriptObj(self)
-        cfg.executeScript(self._script_path)
+        cfg.executeScript(self._script_path, config)
         self._cfg = cfg
     
     def resolveNodes(self):
@@ -1311,19 +1321,28 @@ class ModuleManager(object):
         self._config = dict()
         self._targets = []
     
-    def loadConfig(self, config):
-        """Loads a configuartion.
+    def loadNodes(self, config=None):
+        """Creates Nodes and loads config.
         
-        This method just overwrites the _config 
-        variable. It also iterates through all 
-        modules and configures them.
+        This method iterates through all modules, executes
+        them and configures them (optional).
         
-        @param config: The config dictionary.
+        @param config: Optional dictionary that represents
+                       a configuration to load.
         """
-        self._config = config
-        raise NotImplementedError();
+        if config is not None:
+            self._config = config
+        
+        for (name, mod) in self._mods.items():
+            if name in self._config:
+                mod.executeScript(config[name])
+            else:
+                mod.executeScript()
+        
+        for (name, mod) in self._mods.items():
+            mod.resolveNodes()
     
-    def collectConfig(self):
+    def collectConfig(self, formatted=False):
         """Collects current configuration.
         
         This method collects the current configuration
@@ -1333,12 +1352,9 @@ class ModuleManager(object):
         @return: A dictionary of all configurations of
                  all modules.
         """
-        self._config = {}
-        #TODO: implement...
-        raise NotImplementedError()
+        self._config = dict()
         for (name, mod) in self._mods.items():
-            self._config[name] = None
-            print(name)
+            self._config[name] = mod.getConfigDict(formatted=formatted)
         
         return self._config
     
@@ -1359,12 +1375,6 @@ class ModuleManager(object):
         self._load_modules(targetlist, self._targets, '.')
         for (name, mod) in self._mods.items():
             mod.initialize(self._src, self._mods)
-        
-        for (name, mod) in self._mods.items():
-            mod.executeScript()
-        
-        for (name, mod) in self._mods.items():
-            mod.resolveNodes()
     
     def _load_modules(self, targetlist, parent, directory):
         """Loads all modules.
