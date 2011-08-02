@@ -791,7 +791,7 @@ class DependencyFrame(object):
         
         csf.removeFrames(self._frames)
     
-    def _is_available(self):
+    def isAvailable(self):
         """This method checks if all dependent nodes are configured.
         
         @returns: Returns True if all deps are configured, else
@@ -801,6 +801,18 @@ class DependencyFrame(object):
             if not i.isConfigured():
                 return False
         return True
+    
+    def isDisabled(self):
+        """This method checks if one of the dependent nodes is disabled.
+        
+        @returns: Returns True if at least one node is disabled, else
+                  False.
+        """
+        
+        for i in self._deps:
+            if i.isDisabled():
+                return True
+        return False
     
     def update(self):
         "This method will be called if a dep. changes it value."
@@ -823,7 +835,7 @@ class DependencyFrame(object):
         @returns: True if this frame can be executed.
         """
         ret = self.needsExecute()
-        ret = ret and self._is_available()
+        ret = ret and self.isAvailable()
         ret = ret and ((self._status & self.RESOLVED) == self.RESOLVED)
         return ret
     
@@ -1274,6 +1286,40 @@ class ModuleNode(object):
     def generateDst(self, dst):
         pass
     
+    def isFullyConfigured(self):
+        """Checks if all nodes are configured.
+        
+        Also checks frames + excludes nodes (and frames) that are
+        disabled.
+        
+        @returns: Returns True if all nodes that matter are configured,
+                  else False.
+        """
+        if self._cfg is not None:
+            for frame in self._cfg.frames:
+                if (not frame.isAvailable()) or frame.needsExecute():
+                    if not frame.isDisabled():
+                        return False
+            for node in self._cfg.nodes.values():
+                if not (node.isDisabled() or node.isConfigured()):
+                    return False
+        return True
+    
+    def dumpsInfo(self):
+        
+        lines = list()
+        lines.append("module '%s':" % self._uname)
+        lines.append(" .targets (%d)" % len(self.targets))
+        for tget in self.targets:
+            lines.append("  .dir '%s':" % tget.modulepath())
+            for f in tget.iterFiles():
+                lines.append("   - '%s'" % f)
+        lines.append(" .using modules (%d)" % len(self._used_mods))
+        for (mod, name) in self._used_mods:
+            lines.append("  - module '%s' as '%s'" % 
+                 (mod.uniquename(), name))
+        return "\n".join(lines)
+    
     def dump(self, file=None):
         print("module '%s':" % self._uname, file=file)
         if len(self.targets) > 0:
@@ -1339,8 +1385,11 @@ class ModuleManager(object):
             else:
                 mod.executeScript()
         
-        for (name, mod) in self._mods.items():
+        for mod in self._mods.values():
             mod.resolveNodes()
+        
+        for mod in self._mods.values():
+            mod.executeFrames()
     
     def collectConfig(self, formatted=False):
         """Collects current configuration.
@@ -1460,6 +1509,24 @@ class ModuleManager(object):
         else:
             # TODO: Exception
             return None
+    
+    def isFullyConfigured(self, warning=False):
+        """Checks if all modules are configured.
+        
+        @param warning: Optional parameter toggles warnings. If set
+                        warnings will be shown for each module that
+                        isn't fully configured.
+        @returns:       Returns true if all modules are configured.
+        """
+        ret = True
+        for mod in self._mods.values():
+            if not mod.isFullyConfigured():
+                ret = False
+                if warning:
+                    warn("Failing not yet supported (%s)"
+                     % mod.uniquename()
+                     , NotYetWorkingWarning)
+        return ret
     
     def dump(self):
         """Dumps current module-list.

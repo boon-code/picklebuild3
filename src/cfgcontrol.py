@@ -23,9 +23,6 @@ class ConfigController(object):
         self._gui = gui_class(self)
         names = mod_man.getModuleNames()
         self._gui.initModules(names)
-        #self._default = dict()
-        #for i in names:
-        #    self._default[i] = None
         self._cur_mod = None
         self._cur_node = None
         self._cur_value = None
@@ -80,6 +77,8 @@ class ConfigController(object):
         else:
             self._cur_node = None
             self._cur_mod = mod
+            self._gui.setModuleHelp(mod.dumpsInfo())
+            print(mod.dumpsInfo())
             names = mod.getNodeNames()
             colors = tuple(self.iterColors(names))
             self._gui.initNodes(names, colors)

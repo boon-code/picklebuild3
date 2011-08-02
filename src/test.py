@@ -17,7 +17,5 @@ a = pmodules.ModuleManager('../test/src')
 a.initModules(b)
 a.loadNodes()
 man = a
-try:
-    ctrl = cfgcontrol.ConfigController(Pbgui, man)
-except:
-    a.dump()
+ctrl = cfgcontrol.ConfigController(Pbgui, man)
+print("Is fully configured: ", man.isFullyConfigured(warning=True))

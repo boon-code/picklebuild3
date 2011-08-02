@@ -33,6 +33,9 @@ class Pbgui(CustomPbgui):
         self._sclNodes["command"] = self._lsNodes.yview
         self._sclListconfig["command"] = self._lsListconfig.yview
         self._sclTextconfig["command"] = self._txTextconfig.yview
+        self._labModules.config(text="                          ")
+        self._labNodes.config(text="                          ")
+        self._labConfig.config(text="                          ")
         root.protocol("WM_DELETE_WINDOW", root.destroy)
     
     # override
@@ -189,6 +192,15 @@ class Pbgui(CustomPbgui):
     def _copy_config_list(self, lst):
         for elm in lst:
             self._lsListconfig.insert(tkinter.END, elm)
+    
+    def setModuleHelp(self, text):
+        self._labModules.config(text=text)
+    
+    def setNodeHelp(self, text):
+        self._labNodes.config(text=text)
+    
+    def setConfigHelp(self, text):
+        pass
     
     def setTextNode(self, choice):
         """

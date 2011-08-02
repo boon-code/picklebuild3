@@ -1,5 +1,5 @@
 # GUIBUILDER FILE Build 146
-# Created: 2011-07-20 17:56:02 by GUI Builder Build 146
+# Created: 2011-08-02 17:14:49 by GUI Builder Build 146
 language tkinter 8.4
 widget {Tk frame} f {
 	geometry min_column 493
@@ -480,6 +480,7 @@ widget {Tk panedwindow} _panedwindow_1 {
 widget {Tk label} _label_1 {
 	configure -anchor nw
 	configure -font {helvetica 9}
+	configure -justify left
 	configure -text {current module information}
 	geometry -column 1
 	geometry -columnspan 1
@@ -502,6 +503,7 @@ widget {Tk label} _label_1 {
 widget {Tk label} _label_2 {
 	configure -anchor nw
 	configure -font {helvetica 9}
+	configure -justify left
 	configure -text {current node information}
 	geometry -column 1
 	geometry -columnspan 1
@@ -524,6 +526,7 @@ widget {Tk label} _label_2 {
 widget {Tk label} _label_3 {
 	configure -anchor nw
 	configure -font {helvetica 9}
+	configure -justify left
 	configure -text {current configuration}
 	geometry -column 1
 	geometry -columnspan 1
