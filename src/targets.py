@@ -90,25 +90,23 @@ class TargetTree(object):
         @param rootdir: Root directory of this tree.
         """
         self._src = rootdir
-        self._nodes = {}
+        self._nodes = dict()
     
     def add(self, filepath):
         """Adds a new path to this object.
         
-        Only relative paths relative to src
-        will be accepted.
-        
-        param filepath: The path to add (relative to src).
+        param filepath: The path to add.
         """
-        rpath = os.path.normpath(os.path.join(self._src, filepath))
+        rpath = os.path.relpath(filepath, self._src)
+        fullpath = os.path.normpath(os.path.join(self._src, rpath))
         
-        if not (rpath.startswith(self._src)):
+        if not (fullpath.startswith(self._src)):
             warnings.warn("Invalid target '%s' skipped."
                  % filepath, SkippedTargetWarning)
             return False
         
-        if os.path.isfile(rpath):
-            split_path = os.path.split(filepath)
+        if os.path.isfile(fullpath):
+            split_path = os.path.split(rpath)
             mdir = os.path.normpath(split_path[0])
             if mdir not in self._nodes:
                 self._nodes[mdir] = TargetNode(mdir)
@@ -119,15 +117,19 @@ class TargetTree(object):
                 % filepath, SkippedTargetWarning)
             return False
     
+    def remove(self, filepath):
+        rpath = os.path.relpath(filepath, self._src)
+        rdir = os.path.normpath(os.path.split(rpath)[0])
+        self._nodes.pop(rdir, None)
+        # TODO: this is wrong, only delete entry in TreeNode...
+    
     def getTargetNode(self, relpath):
         
         if relpath in self._nodes:
             return self._nodes[relpath]
     
     def iterDirs(self):
-        
-        for key in self._nodes:
-            yield self._nodes[key]
+        return self._nodes.values()
     
     def dumpTree(self):
         
