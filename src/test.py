@@ -18,4 +18,5 @@ a.initModules(b)
 a.loadNodes()
 man = a
 ctrl = cfgcontrol.ConfigController(Pbgui, man)
+ctrl.mainloop()
 print("Is fully configured: ", man.isFullyConfigured(warning=True))

@@ -17,6 +17,7 @@ VERSION = 'v0.0.1'
 
 _PCDIR = '.pconfig'
 _PCMAIN = 'main.jso'
+_PC_CCF = 'current-config.jso'
 _DEFAULT_SRC = './src/'
 _DEFAULT_DST = './out/'
 # Used by _find_cfg_dir. It's the name of the config dir.
@@ -27,6 +28,18 @@ class SourceNotFoundError(Exception):
     def __init__(self, path, *args):
         self.path = path
 
+
+class NotProperlyConfiguredError(Exception):
+    
+    def __init__(self, src, dst, tgets, *args):
+        error_src = list()
+        if src is None:
+            error_src.append("Source not properly set.")
+        if dst is None:
+            error_src.append("Destination not properly set.")
+        if tgets is None:
+            error_src.append("Targets not set up correctly.")
+        self.error_source = "\n".join(error_src)
 
 
 def _get_nn(value, default=None):
@@ -48,15 +61,22 @@ class MainConfig(object):
     source directory, output directory, ... 
     """
     
-    def __init__(self, cwd, autoload=True):
+    def __init__(self, cwd, autoload=True, failinpc=False):
         """This creates a new instance.
         
-        @param cwd: The current working directory to start
-                    searching for a base-directory.
+        @param cwd:      The current working directory to start
+                         searching for a base-directory.
+        @param autoload: If set, loadConfig will automatically 
+                         be called.
+        @param failinpc: Fail if not properly configured.
+                         This automatically enables autoload.
         """
         self._real_init(cwd)
-        if autoload:
+        if autoload or failinpc:
             self.loadConfig()
+        if failinpc and (not self.isProperConfigured()):
+            raise NotProperlyConfiguredError(self.source, self.dest
+                 , self.targets, "Not properly set up.")
     
     def _find_base_dir(self, basedir='.'):
         
@@ -101,7 +121,6 @@ class MainConfig(object):
         except AttributeError:
             print("bad attribute error")
             raise
-        print(cfg)
         return self.setup(cfg, cwd=cwd)
     
     def setup(self, cfg, cwd=None, fail=True):
@@ -211,7 +230,7 @@ def add(args):
     if len(args) < 1:
         parser.print_help(file=sys.stderr)
     else:
-        cfg = MainConfig(os.getcwd())
+        cfg = MainConfig(os.getcwd(), failinpc=True)
         for i in _expand_all(args):
             cfg.addTarget(i)
         cfg.saveConfig()
@@ -224,7 +243,7 @@ def rm(args):
     if len(args) < 1:
         parser.print_help(file=sys.stderr)
     else:
-        cfg = MainConfig(os.getcwd())
+        cfg = MainConfig(os.getcwd(), failinpc=True)
         for i in _expand_all(args):
             cfg.rmTarget(i)
         cfg.saveConfig()
@@ -276,28 +295,32 @@ def setup(args):
 
 
 def status(args):
-    cfg = MainConfig(os.getcwd())
-    if cfg.isProperConfigured():
-        cfg.targets.dumpTree()
+    cfg = MainConfig(os.getcwd(), failinpc=True)
+    cfg.targets.dumpTree()
+
 
 def configure(args):
-    cfg = MainConfig(os.getcwd())
-    if cfg.isProperConfigured():
-        man = pmodules.ModuleManager(cfg.fullSource())
-        man.initModules(cfg.targets)
-        man.loadNodes()
-        ctrl = cfgcontrol.ConfigController(Pbgui, man)
+    cfg = MainConfig(os.getcwd(), failinpc=True)
+    man = pmodules.ModuleManager(cfg.fullSource())
+    man.initModules(cfg.targets)
+    path = os.path.join(cfg.config_dir, _PC_CCF)
+    config = dict()
+    if os.path.isfile(path):
+        config = pfile.loadConfigFile(path)
+    man.loadNodes(config=config)
+    ctrl = cfgcontrol.ConfigController(Pbgui, man)
+    save_settings = ctrl.mainloop()
+    if save_settings:
         print("Is fully configured: "
              , man.isFullyConfigured(warning=True))
-    else:
-        print("not properly initialized")
+        pfile.saveConfigFile(path, man.collectConfig())
 
 
 def showMain(args):
     parser = OptionParser(usage="usage: %prog cmd")
     parser.add_option("-V", "--version", action="store_true"
          , help="prints current version to stdout")
-    parser.set_defaults(verbose=False, version=False)
+    parser.set_defaults(version=False)
     options, args = parser.parse_args(args)
     
     if options.version:
@@ -326,6 +349,9 @@ def main(args):
         pass
     except SourceNotFoundError as e:
         print("Couldn't find source directory (%s)" % e.path)
+    except NotProperlyConfiguredError as e:
+        print("Not properly configured.\n%s" % e.error_source)
+        print("Use 'setup' command to set up project.")
     
     return showMain(args)
 

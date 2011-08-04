@@ -26,7 +26,12 @@ class ConfigController(object):
         self._cur_mod = None
         self._cur_node = None
         self._cur_value = None
+        self._apply = False
+    
+    def mainloop(self):
         self._gui.mainloop()
+        return self._apply
+        
     
     # called by gui:
     
@@ -49,13 +54,14 @@ class ConfigController(object):
         
         #TODO: delete!
         self._mman.dump()
-        
+        self._apply = True
         return True
     
     def cancel(self):
         
         #TODO: delete!
         self._mman.dump()
+        self._apply = False
         pass
     
     def iterColors(self, names):
