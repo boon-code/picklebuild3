@@ -110,7 +110,7 @@ class BasicNode(object):
     CONFIGURED = 1
     
     _log = plog.clone_system_logger(_PLOG_NAME)
-    __slots__ = ('_name', '_overrider', '_help', '_flags', '_iseeker'
+    __slots__ = ('help', '_name', '_overrider', '_flags', '_iseeker'
                , '_status', '_value', '_unresolved_flags')
     
     def __init__(self, name, help=None, flags=None, **kgs):
@@ -128,9 +128,9 @@ class BasicNode(object):
         self._value = None
         
         if help is None:
-            self._help = ""
+            self.help = ""
         else:
-            self._help = help
+            self.help = help
         
         self._flags = set()
         
@@ -1312,7 +1312,7 @@ class ModuleNode(object):
         lines.append(" .targets (%d)" % len(self.targets))
         for tget in self.targets:
             lines.append("  .dir '%s':" % tget.modulepath())
-            for f in tget.iterFiles():
+            for f in tget.iterNames():
                 lines.append("   - '%s'" % f)
         lines.append(" .using modules (%d)" % len(self._used_mods))
         for (mod, name) in self._used_mods:
@@ -1327,7 +1327,7 @@ class ModuleNode(object):
         for tget in self.targets:
             print("    .dir '%s':" % tget.modulepath()
                  , file=file)
-            for j in tget.iterFiles():
+            for j in tget.iterNames():
                 print("      - '%s'" % j, file=file)
         if len(self._used_mods) > 0:
             print("  .using modules:", file=file)
@@ -1536,7 +1536,7 @@ class ModuleManager(object):
         print("****** ModuleManager::dump() ******")
         print("ModuleManager-global-targets:")
         for i in self._targets:
-            for j in i.iterFiles():
+            for j in i.iterNames():
                 print("    %s" % j)
         for (name, mod) in self._mods.items():
             print('')

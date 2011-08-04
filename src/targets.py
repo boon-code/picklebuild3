@@ -2,8 +2,8 @@
 # Copyright (c) 2011 Manuel Huber.
 # License: GPLv3.
 
+from warnings import warn
 import os.path
-import warnings
 
 
 """
@@ -24,6 +24,24 @@ class SkippedTargetWarning(UserWarning):
     """
     pass
 
+class Target(object):
+    """This class represents a single target file
+    
+    Used to implement additional arguments.
+    """
+    
+    def __init__(self, name, options):
+        """Initializes a new instance.
+        
+        @param name:    file-name.
+        @param options: Addtitional options regarding this file.
+        """
+        self.name = name
+        self.options = options
+    
+    def __str__(self):
+        return self.name
+
 
 class TargetNode(object):
     """This class represents one target directory.
@@ -41,15 +59,28 @@ class TargetNode(object):
                             directory name.)
         """
         self._path = module_path
-        self._target_names = []
+        self._targets = dict()
             
-    def add(self, filename):
+    def add(self, filename, **options):
         """Adds a file to this node.
         
         This method adds a new file to this TargetNode.
         @param filename: File name which will be added.
+        @param options:  
         """
-        self._target_names.append(filename)
+        self._targets[filename] = Target(filename, options)
+    
+    def remove(self, filename):
+        """Removes a file from this node.
+        
+        If the file doesn't exist, it will just be ignored.
+        @param filename: File to remove.
+        @returns:        Number of nodes that remain.
+        """
+        if self._targets.pop(filename, None) is None:
+            warn("Couldn't find target '%s'" % filename
+                 , SkippedTargetWarning)
+        return len(self._targets)
     
     def modulepath(self, src=None):
         """This method can be used to retrieve the module path.
@@ -63,7 +94,7 @@ class TargetNode(object):
         else:
             return self._path
     
-    def iterFiles(self, src=None):
+    def iterNames(self, src=None):
         """This generator should be used to get all filenames.
         
         @param src: The source directory name that will be appended to
@@ -71,9 +102,19 @@ class TargetNode(object):
                     (None means don't append anything)
         """
         path = self.modulepath(src=src)
-        for name in self._target_names:
+        for name in self._targets.keys():
             filepath = os.path.join(path, name)
             yield os.path.normpath(filepath)
+    
+    def items(self, src=None):
+        """This generator returns all nodes.
+        
+        @param src: The source directory that will be appended.
+        """
+        path = self.modulepath(src=src)
+        for (n, v) in self._targets.items():
+            filepath = os.path.normpath(os.path.join(path, n))
+            yield (filepath, v)
 
 
 class TargetTree(object):
@@ -92,17 +133,24 @@ class TargetTree(object):
         self._src = rootdir
         self._nodes = dict()
     
-    def add(self, filepath):
+    def add(self, filepath, relative=False, **options):
         """Adds a new path to this object.
         
-        param filepath: The path to add.
+        @param filepath: The path to add.
+        @param relative: Optional parameter; if set, filepath will be
+                         interpreted as relative path, not absolute
+                         (or relative to cwd).
         """
-        rpath = os.path.relpath(filepath, self._src)
+        if relative:
+            rpath = filepath
+        else:
+            rpath = os.path.relpath(filepath, self._src)
+        
         fullpath = os.path.normpath(os.path.join(self._src, rpath))
         
         if not (fullpath.startswith(self._src)):
-            warnings.warn("Invalid target '%s' skipped."
-                 % filepath, SkippedTargetWarning)
+            warn("Invalid target '%s' skipped."
+                 % fullpath, SkippedTargetWarning)
             return False
         
         if os.path.isfile(fullpath):
@@ -110,18 +158,47 @@ class TargetTree(object):
             mdir = os.path.normpath(split_path[0])
             if mdir not in self._nodes:
                 self._nodes[mdir] = TargetNode(mdir)
-            self._nodes[mdir].add(split_path[1])
+            self._nodes[mdir].add(split_path[1], **options)
             return True
         else:
-            warnings.warn("Invalid target (not a file) '%s' skipped."
-                % filepath, SkippedTargetWarning)
+            warn("Invalid target (not a file) '%s' skipped."
+                % fullpath, SkippedTargetWarning)
             return False
     
-    def remove(self, filepath):
-        rpath = os.path.relpath(filepath, self._src)
-        rdir = os.path.normpath(os.path.split(rpath)[0])
-        self._nodes.pop(rdir, None)
-        # TODO: this is wrong, only delete entry in TreeNode...
+    def remove(self, filepath, relative=False):
+        """Deletes a file from this tree.
+        
+        @param filepath: Path to file that should be removed.
+        @param relative: filepath will be interpreted as relative
+                         path (if relative == True). If not set,
+                         filepath will be interpreted either as 
+                         absolute path, or relative to the current
+                         working directory (cwd).
+        """
+        if relative:
+            rpath = filepath
+        else:
+            rpath = os.path.relpath(filepath, self._src)
+        
+        splitpath = os.path.split(rpath)
+        rdir = os.path.normpath(splitpath[0])
+        node = self._nodes.pop(rdir, None)
+        if node is not None:
+            if node.remove(splitpath[1]) > 0:
+                self._nodes[rdir] = node
+        else:
+            warn("TargetNode '%s' not found, skipping"
+                 % rdir, SkippedTargetWarning)
+    
+    def iterNames(self, relative=True):
+        
+        for (path, node) in self._nodes.items():
+            if relative:
+                for i in node.iterNames():
+                    yield i
+            else:
+                for i in node.iterNames(src=self._src):
+                    yield i
     
     def getTargetNode(self, relpath):
         
@@ -135,7 +212,7 @@ class TargetTree(object):
         
         for (k,v) in self._nodes.items():
             print("'%s':" % k)
-            for file in v.iterFiles():
+            for file in v.iterNames():
                 print("  - '%s'" % file)
     
     

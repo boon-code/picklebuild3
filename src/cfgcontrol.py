@@ -78,7 +78,6 @@ class ConfigController(object):
             self._cur_node = None
             self._cur_mod = mod
             self._gui.setModuleHelp(mod.dumpsInfo())
-            print(mod.dumpsInfo())
             names = mod.getNodeNames()
             colors = tuple(self.iterColors(names))
             self._gui.initNodes(names, colors)
@@ -89,8 +88,11 @@ class ConfigController(object):
         node = self._cur_mod.getNode(name)
         if self._cur_node is not None:
             if self._cur_node.getName() == name:
+                self._cur_node = node
+                self._gui.setNodeHelp(node.help)
                 return True
         self._cur_node = node
+        self._gui.setNodeHelp(node.help)
         return self.loadChoice()
     
     def applyChoice(self):

@@ -7,15 +7,38 @@ from optparse import OptionParser
 import sys
 import os
 import glob
+from pbgui_imp import Pbgui
 import pfile
 import targets
-
+import pmodules
+import cfgcontrol
 
 VERSION = 'v0.0.1'
 
 _PCDIR = '.pconfig'
 _PCMAIN = 'main.jso'
+_DEFAULT_SRC = './src/'
+_DEFAULT_DST = './out/'
 # Used by _find_cfg_dir. It's the name of the config dir.
+
+
+class SourceNotFoundError(Exception):
+    
+    def __init__(self, path, *args):
+        self.path = path
+
+
+
+def _get_nn(value, default=None):
+    """Return not None (if possible).
+    
+    @param value:   Value that will be returned (if not None).
+    @param default: Value that will be returned if value is None.
+    """
+    if value is None:
+        return default
+    else:
+        return value
 
 
 class MainConfig(object):
@@ -25,15 +48,15 @@ class MainConfig(object):
     source directory, output directory, ... 
     """
     
-    def __init__(self, cwd):
+    def __init__(self, cwd, autoload=True):
         """This creates a new instance.
         
         @param cwd: The current working directory to start
                     searching for a base-directory.
         """
-        self._cfg = dict()
         self._real_init(cwd)
-        self.loadConfig()
+        if autoload:
+            self.loadConfig()
     
     def _find_base_dir(self, basedir='.'):
         
@@ -47,98 +70,138 @@ class MainConfig(object):
             return self._find_base_dir(basedir=next_path)
     
     def _real_init(self, cwd):
+        
+        self.base_dir = None
+        self.config_dir = None
+        self.targets = None
+        self.source = None
+        self.dest = None
+        
         bd = self._find_base_dir(cwd)
         if bd is not None:
             self.base_dir = os.path.realpath(bd)
             self.config_dir = os.path.join(self.base_dir, _PCDIR)
-        else:
-            self.base_dir = None
-            self.config_dir = None
-        self.source = "src/"
-        self.dest = "out/"
-        self._targets = None
     
-    def initialize(self, cwd, obj):
+    def foundConfig(self):
+        return (None not in (self.base_dir, self.config_dir))
+    
+    def isProperConfigured(self):
+        return (None not in (self.source, self.dest, self.targets))
+    
+    def fullSource(self):
+        src = os.path.join(self.base_dir, self.source)
+        return os.path.normpath(src)
+    
+    def setupFromObject(self, obj, cwd=None):
         
-        if self.isInitialized():
-            return False
-        else:
+        cfg = dict()
+        try:
+            cfg['src'] = obj.src
+            cfg['dst'] = obj.dst
+        except AttributeError:
+            print("bad attribute error")
+            raise
+        print(cfg)
+        return self.setup(cfg, cwd=cwd)
+    
+    def setup(self, cfg, cwd=None, fail=True):
+        
+        if not self.foundConfig():
+            if cwd is None:
+                cwd = os.getcwd()
+            os.mkdir(_PCDIR)
+            self.source = _DEFAULT_SRC
+            self.dest = _DEFAULT_DST
             self._real_init(cwd)
-            self.updateSettings(obj)
-    
-    def isInitialized(self):
-        return (self.config_dir is not None)
-    
-    def updateSettings(self, obj):
         
-        if self.isInitialized():
-            try:
-                self.source = os.path.relpath(obj.src, self.base_dir)
-                self.dest = os.path.relpath(obj.dst, self.base_dir)                
-            except AttributeError as e:
-                print("This shouldn't happen!!")
-                raise
-            self.saveConfig()
-    
-    def _update_targets(self):
-        src = os.path.normpath(os.path.join(self.base_dir, self.source))
-        self._targets = targets.TargetTree(src)
-        if 'tgl' not in self._cfg:
-            self._cfg['tgl'] = list()
-        for i in self._cfg['tgl']:
-            path = os.path.join(src, i)
-            self._targets.add(path)
+        if self.foundConfig():
+            tgl = list()
+            if self.targets is not None:
+                tgl = list(self.targets.iterNames())
+            
+            self.targets = None
+            self.source = _get_nn(cfg.pop('src', None)
+                 , default=self.source)
+            self.dest = _get_nn(cfg.pop('dst', None)
+                 , default=self.dest)
+            
+            if None in (self.source, self.dest):
+                if fail:
+                    raise Exception("Not setup correctly")
+                else:
+                    print("Couldn't setup correctly")
+                    return
+            
+            if not os.path.isdir(self.fullSource()):
+                if fail:
+                    raise SourceNotFoundError(self.fullSource()
+                        , "Couldn't find source")
+                else:
+                    return
+            
+            self.targets = targets.TargetTree(self.fullSource())
+            if 'tgl' in cfg:
+                # Replace tgl if it has been set in cfg dict.
+                tgl = cfg['tgl']
+            for i in tgl:
+                self.targets.add(i, relative=True)
+        else:
+            #TODO: Exception!
+            raise Exception("Couldn't setup config dir")
     
     def addTarget(self, path):
-        if self.isConfigured():
-            self._targets.add(path)
+        if self.isProperConfigured():
+            self.targets.add(os.path.realpath(path))
     
     def rmTarget(self, path):
-        if self.isConfigured():
-            self._targets.remove(path)
+        if self.isProperConfigured():
+            self.targets.remove(os.path.realpath(path))
     
-    def isConfigured(self):
+    def saveConfig(self, leave_tgl=False):
         
-        v = ('src', 'dst')
-        for i in v:
-            if i not in self._cfg:
-                return False
-        return True
-    
-    def saveConfig(self):
-        
-        if self.isInitialized():
+        if self.isProperConfigured():
             path = os.path.join(self.config_dir, _PCMAIN)
-            self._cfg['src'] = self.source
-            self._cfg['dst'] = self.dest
-            self._cfg['tgl'] = list()
-            for node in self._targets.iterDirs():
-                for i in node.iterFiles():
-                    self._cfg['tgl'].append(i)
-            pfile.saveControlFile(path, self._cfg)
+            cfg = dict()
+            cfg['src'] = self.source
+            cfg['dst'] = self.dest
+            if not leave_tgl:
+                cfg['tgl'] = list(self.targets.iterNames())
+            else:
+                old = self._load_config()
+                if old is None:
+                    cfg['tgl'] = list()
+                else:
+                    cfg['tgl'] = old.pop('tgl', list())
+            pfile.saveControlFile(path, cfg)
     
-    def loadConfig(self):
-        
-        if self.isInitialized():
+    def _load_config(self):
+        if self.foundConfig():
             path = os.path.join(self.config_dir, _PCMAIN)
-            if os.path.isfile(path):
-                cfg = pfile.loadControlFile(path)
-                if isinstance(cfg, dict):
-                    self._cfg = cfg
-            if self.isConfigured():
-                self.source = self._cfg['src']
-                self.dest = self._cfg['dst']
-            self._update_targets()
+            cfg = pfile.loadControlFile(path)
+            if isinstance(cfg, dict):
+                return cfg
+    
+    def loadConfig(self, fail=True):
+        
+        cfg = self._load_config()
+        if cfg is not None:
+            self.setup(cfg, fail=fail)
+
 
 def _expand(path):
     path = os.path.expanduser(path)
     path = os.path.expandvars(path)
     return glob.iglob(path)
 
+
 def _expand_all(args):
     for i in args:
+        empty=True
         for j in _expand(i):
+            empty=False
             yield j
+        if empty:
+            yield i
 
 
 def add(args):
@@ -152,7 +215,7 @@ def add(args):
         for i in _expand_all(args):
             cfg.addTarget(i)
         cfg.saveConfig()
-        cfg._targets.dumpTree()
+        cfg.targets.dumpTree()
 
 def rm(args):
     parser = OptionParser(usage="usage: %prog rm [options] files")
@@ -165,41 +228,69 @@ def rm(args):
         for i in _expand_all(args):
             cfg.rmTarget(i)
         cfg.saveConfig()
-        cfg._targets.dumpTree()
+        cfg.targets.dumpTree()
 
 def setup(args):
     
     parser = OptionParser(usage="usage: %prog setup [options]")
-    parser.add_option("-s", "--source-dir", default="./src/"
-     , help="sets source directory (default is %default)"
-     , dest="src")
-    parser.add_option("-d", "--destination-dir", default="./out/"
-     , help="sets output directory (default is %default)"
-     , dest="dst")
-    parser.add_option("-j", "--just-show", action="store_true"
+    parser.add_option("-s", "--source-dir", dest="src"
+     , help="sets source directory (default is %s" % _DEFAULT_SRC)
+    parser.add_option("-d", "--destination-dir", dest="dst"
+     , help="sets output directory (default is %s)" % _DEFAULT_DST)
+    parser.add_option("-i", "--info", action="store_true"
      , help="Print current configuartion without changing anything"
      , default=False, dest="show")
+    parser.add_option("-o", "--override", action="store_true"
+     , help="This flag has to be attached, to enable change directory"
+     , default=False)
     options, args = parser.parse_args(args)
     
-    cfg = MainConfig(os.getcwd())
+    cfg = MainConfig(os.getcwd(), autoload=False)
     
-    if options.show:
-        if cfg.isInitialized():
+    dir_nn = (options.src is not None) or (options.dst is not None)
+    
+    if cfg.foundConfig():
+        if options.show:
             print("Found initialized pconfig dir (%s)"
              % cfg.config_dir)
-            if cfg.isConfigured():
+            cfg.loadConfig(fail=False)
+            if cfg.isProperConfigured():
+                print("source: ", cfg.source)
+                print("dest: ", cfg.dest)
                 print("Everything properly set up.")
             else:
-                print("Not yet set up.")
+                print("source: ", cfg.source)
+                print("dest: ", cfg.dest)
+                print("Not correctly set up.")
+        elif dir_nn and options.override:
+            cfg.loadConfig(fail=False)
+            cfg.setupFromObject(options)
+            cfg.saveConfig(leave_tgl=True)
+        elif dir_nn and (not options.override):
+            print("you have to add --override to reconfigure.")
         else:
-            print("Couldn't find root directory, use 'setup'")
+            print("This already is a pickleconfig project.")
     else:
-        if cfg.isInitialized():
-            print("update directory")
-            cfg.updateSettings(options)
-        else:
-            os.mkdir(_PCDIR)
-            cfg.initialize(os.getcwd(), options)
+        cfg.setupFromObject(options)
+        cfg.saveConfig()
+
+
+def status(args):
+    cfg = MainConfig(os.getcwd())
+    if cfg.isProperConfigured():
+        cfg.targets.dumpTree()
+
+def configure(args):
+    cfg = MainConfig(os.getcwd())
+    if cfg.isProperConfigured():
+        man = pmodules.ModuleManager(cfg.fullSource())
+        man.initModules(cfg.targets)
+        man.loadNodes()
+        ctrl = cfgcontrol.ConfigController(Pbgui, man)
+        print("Is fully configured: "
+             , man.isFullyConfigured(warning=True))
+    else:
+        print("not properly initialized")
 
 
 def showMain(args):
@@ -216,18 +307,26 @@ def showMain(args):
 
 
 def main(args):
-    
-    if len(args) >= 2:
+    try:
         if args[1] == 'setup':
             return setup(args[2:])
         elif args[1] == 'add':
             return add(args[2:])
         elif args[1] == 'rm':
             return rm(args[2:])
+        elif args[1] == 'status':
+            return status(args[2:])
         elif args[1] == 'make':
             pass
         elif args[1] == 'cfg':
-            pass
+            return configure(args[2:])
+        else:
+            print("invalid argument '%s'" % args[1])
+    except IndexError:
+        pass
+    except SourceNotFoundError as e:
+        print("Couldn't find source directory (%s)" % e.path)
+    
     return showMain(args)
 
 
