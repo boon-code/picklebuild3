@@ -112,6 +112,10 @@ class MainConfig(object):
         src = os.path.join(self.base_dir, self.source)
         return os.path.normpath(src)
     
+    def fullDestination(self):
+        dst = os.path.join(self.base_dir, self.dest)
+        return os.path.normpath(dst)
+    
     def setupFromObject(self, obj, cwd=None):
         
         cfg = dict()
@@ -295,11 +299,17 @@ def setup(args):
 
 
 def status(args):
+    parser = OptionParser(usage="usage: %prog status")
+    options, args = parser.parse_args(args)
+    
     cfg = MainConfig(os.getcwd(), failinpc=True)
     cfg.targets.dumpTree()
 
 
 def configure(args):
+    parser = OptionParser(usage="usage: %prog configure")
+    options, args = parser.parse_args(args)
+    
     cfg = MainConfig(os.getcwd(), failinpc=True)
     man = pmodules.ModuleManager(cfg.fullSource())
     man.initModules(cfg.targets)
@@ -314,6 +324,43 @@ def configure(args):
         print("Is fully configured: "
              , man.isFullyConfigured(warning=True))
         pfile.saveConfigFile(path, man.collectConfig())
+
+
+def make(args):
+    parser = OptionParser(usage="usage: %prog make [options]")
+    parser.add_option("-n", "--not-interactive", dest="interactive"
+     , help="Use this flag to disable interactive mode."
+     , default=True, action="store_false")
+    parser.add_option("-l", "--load-config", dest="load"
+    , help="Load a config file before starting build process")
+    options, args = parser.parse_args(args)
+    
+    cfg = MainConfig(os.getcwd(), failinpc=True)
+    
+    if options.load is None:
+        path = os.path.join(cfg.config_dir, _PC_CCF)
+    else:
+        path = options.load
+    
+    config = pfile.loadConfigFile(path)
+    man = pmodules.ModuleManager(cfg.fullSource())
+    man.initModules(cfg.targets)
+    man.loadNodes(config=config)
+    
+    if options.interactive:
+        while not man.isFullyConfigured():
+            ctrl = cfgcontrol.ConfigController(Pbgui, man)
+            if not ctrl.mainloop():
+                print("exiting")
+                return
+    if not man.isFullyConfigured():
+        return
+    output = man.collectConfig(formatted=True)
+    for name, mod in output.items():
+        print("%s:" % name)
+        for key, value in mod.items():
+            print(" - %s = '%s'" % (key, str(value)))
+    man.generateOutput(cfg.fullDestination())
 
 
 def showMain(args):
@@ -331,20 +378,21 @@ def showMain(args):
 
 def main(args):
     try:
-        if args[1] == 'setup':
+        cmd = args[1]
+        if cmd in ('setup', 'init', 'su'):
             return setup(args[2:])
-        elif args[1] == 'add':
+        elif cmd == 'add':
             return add(args[2:])
-        elif args[1] == 'rm':
+        elif cmd in ('rm', 'remove'):
             return rm(args[2:])
-        elif args[1] == 'status':
+        elif cmd in ('status', 'st'):
             return status(args[2:])
-        elif args[1] == 'make':
-            pass
-        elif args[1] == 'cfg':
+        elif cmd == 'make':
+            return make(args[2:])
+        elif cmd in ('cfg', 'config', 'configure'):
             return configure(args[2:])
         else:
-            print("invalid argument '%s'" % args[1])
+            print("invalid argument '%s'" % cmd)
     except IndexError:
         pass
     except SourceNotFoundError as e:

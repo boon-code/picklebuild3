@@ -6,12 +6,15 @@ import os
 import re
 import sys
 import shlex
+import shutil
+import math
 import collections
 from warnings import warn
 from optparse import OptionParser
 import plog
 import targets
 import puser
+import peval
 from pexcept import NotYetWorkingWarning
 
 """
@@ -709,6 +712,7 @@ class DependencyFrame(object):
         self._status = self.NEEDEXEC
         self._nodes = dict()
         self._frames = set()
+        self._name = None
     
     def __call__(self, func):
         """Saves the function that will be called.
@@ -723,6 +727,10 @@ class DependencyFrame(object):
                  % str(func))
         else:
             self._func = func
+            self._name = func.__code__.co_name
+    
+    def getName(self):
+        return self._name
     
     def resolveDependencies(self, mod):
         """This method tries to find all nodes in 'deps'.
@@ -1116,7 +1124,7 @@ class ModuleNode(object):
         self._basepath = os.path.join(src, relpath)
         self._log = plog.clone_system_logger(_PLOG_NAME)
         self._script_path = None
-        self._used_mods = []
+        self._used_mods = list()
         # Will (directly) be used by ModuleManager
         self.targets = []
         self._cfg = None
@@ -1209,13 +1217,19 @@ class ModuleNode(object):
                 return True
         return False
     
-    def getConfigDict(self, formatted=False):
+    def getConfigDict(self, formatted=False, inc_used=False):
         
         # check self._cfg (executed...)
         mod_config = dict()
         for (name, node) in self._cfg.nodes.items():
             if (node.isConfigured()) and (not node.isDisabled()):
-                mod_config[name] = node.readValue(formatted=formatted)
+                key = "%s_%s" % (self._uname, name)
+                mod_config[key] = node.readValue(formatted=formatted)
+        if inc_used:
+            for used, name in self._used_mods:
+                cfg = used.getConfigDict(formatted=formatted
+                     , inc_used=False)
+                mod_config.update(cfg)
         return mod_config
     
     def getDependencies(self):
@@ -1284,7 +1298,18 @@ class ModuleNode(object):
             frame.executeFunction(self._cfg)
     
     def generateDst(self, dst):
-        pass
+        
+        #modpath = os.path.join(dst, self._rpath)
+        
+        env = {'__builtins__' : __builtins__, 'math' : math}
+        env.update(self.getConfigDict(formatted=True, inc_used=True))
+        
+        for i in self.targets:
+            for (path, tget) in i.items(src=dst):
+                with open(path, 'r') as f:
+                    data = f.read()
+                with open(path, 'w') as f:
+                    peval.parseData(data, f, env)
     
     def isFullyConfigured(self):
         """Checks if all nodes are configured.
@@ -1299,16 +1324,18 @@ class ModuleNode(object):
             for frame in self._cfg.frames:
                 if (not frame.isAvailable()) or frame.needsExecute():
                     if not frame.isDisabled():
+                        print("frame not configured", frame.getName())
                         return False
             for node in self._cfg.nodes.values():
                 if not (node.isDisabled() or node.isConfigured()):
+                    print("node not configured", node.getName())
                     return False
         return True
     
     def dumpsInfo(self):
         
         lines = list()
-        lines.append("module '%s':" % self._uname)
+        lines.append("module '%s' (%s):" % (self._uname, self._rpath))
         lines.append(" .targets (%d)" % len(self.targets))
         for tget in self.targets:
             lines.append("  .dir '%s':" % tget.modulepath())
@@ -1321,7 +1348,8 @@ class ModuleNode(object):
         return "\n".join(lines)
     
     def dump(self, file=None):
-        print("module '%s':" % self._uname, file=file)
+        print("module '%s' (%s):" % (self._uname, self._rpath)
+             , file=file)
         if len(self.targets) > 0:
             print("  .target-nodes:", file=file)
         for tget in self.targets:
@@ -1519,6 +1547,10 @@ class ModuleManager(object):
         @returns:       Returns true if all modules are configured.
         """
         ret = True
+        
+        for mod in self._mods.values():
+            mod.executeFrames()
+        
         for mod in self._mods.values():
             if not mod.isFullyConfigured():
                 ret = False
@@ -1527,6 +1559,13 @@ class ModuleManager(object):
                      % mod.uniquename()
                      , NotYetWorkingWarning)
         return ret
+    
+    def generateOutput(self, dst):
+        
+        shutil.copytree(self._src, dst)
+        
+        for mod in self._mods.values():
+            mod.generateDst(dst)
     
     def dump(self):
         """Dumps current module-list.

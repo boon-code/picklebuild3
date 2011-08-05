@@ -4,7 +4,7 @@
 
 import sys
 import os
-import math
+import re
 
 _START_TAG = "<?"
 _END_TAG = "?>"

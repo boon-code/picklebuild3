@@ -53,14 +53,12 @@ class ConfigController(object):
         #self.applyChoice()
         
         #TODO: delete!
-        self._mman.dump()
         self._apply = True
         return True
     
     def cancel(self):
         
         #TODO: delete!
-        self._mman.dump()
         self._apply = False
         pass
     

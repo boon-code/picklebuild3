@@ -50,7 +50,7 @@ class Pbgui(CustomPbgui):
     
     #override
     def _butLoadfile_command(self, *args):
-        path = askopenfilename(filetypes = [('config', '*.pbc')]
+        path = askopenfilename(filetypes = [('config', '*.jso')]
              , title = "open file")
         
         if path != '':
@@ -58,7 +58,7 @@ class Pbgui(CustomPbgui):
     
     #override
     def _butSavefile_command(self, *args):
-        path = asksaveasfilename(filetypes = [('config', '*.pbc')]
+        path = asksaveasfilename(filetypes = [('config', '*.jso')]
              ,title = "save file")
         
         if path != '':
