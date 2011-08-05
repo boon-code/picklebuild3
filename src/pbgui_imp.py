@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright (c) 2011 Manuel Huber.
-# License: GPLv3.
 
 from pbgui import CustomPbgui
 import sys

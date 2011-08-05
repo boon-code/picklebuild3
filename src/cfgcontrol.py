@@ -1,6 +1,5 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright (c) 2011 Manuel Huber.
-# License: GPLv3.
 
 from warnings import warn
 import collections
@@ -16,7 +15,8 @@ __author__ = 'Manuel Huber'
 __copyright__ = "Copyright (c) 2011 Manuel Huber."
 __license__ = 'GPLv3'
 __docformat__ = "restructuredtext en"
-_
+
+
 class ConfigController(object):
     """Controller class that will connect the gui to the logic.
     
