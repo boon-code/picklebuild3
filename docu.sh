@@ -1,1 +1,1 @@
-epydoc -v  --parse-only --html --no-private src/*.py
+epydoc -v  --parse-only --html --no-private --no-frames src/*.py
