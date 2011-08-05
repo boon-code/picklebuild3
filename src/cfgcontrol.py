@@ -9,15 +9,33 @@ from pexcept import NotYetWorkingWarning
 import pmodules
 import pfile
 
-"""
-Controller part of MVC pattern.
+"""Controller part of MVC pattern.
 """
 
 __author__ = 'Manuel Huber'
+__copyright__ = "Copyright (c) 2011 Manuel Huber."
 __license__ = 'GPLv3'
-
+__docformat__ = "restructuredtext en"
+_
 class ConfigController(object):
+    """Controller class that will connect the gui to the logic.
     
+    The 'logic' means classes from pmodules, which are often
+    referred to as 'the core' of this tool. Note that the
+    controller is used to serperate the gui from the model (=core)
+    and vice versa. The gui only uses public methods of the
+    controller, while the model doesn't know about controller
+    implementation at all. Only the controller uses public methods
+    of classes from pmodules and calls public methods of the gui
+    to interact with the user.
+    
+    Therefore it's easily possible to replace even the controller
+    or just the gui (by some other gui that supports the current
+    interface...)
+    
+    Note that the controller is rather messy, there is a lot to do
+    here.
+    """
     def __init__(self, gui_class, mod_man):
         self._mman = mod_man
         self._gui = gui_class(self)

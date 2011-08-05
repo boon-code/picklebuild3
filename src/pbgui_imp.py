@@ -18,7 +18,9 @@ Implements methods for pbgui.CustomPbgui.
 """
 
 __author__ = 'Manuel Huber'
+__copyright__ = "Copyright (c) 2011 Manuel Huber."
 __license__ = 'GPLv3'
+__docformat__ = "restructuredtext en"
 
 class Pbgui(CustomPbgui):
     
@@ -86,12 +88,10 @@ class Pbgui(CustomPbgui):
         return tuple((int(i) for i in str_list))
     
     def _listbox_event_handler(self, event):
-        """
-        This event handler processes the <<ListboxSelect>> virtual
-        event.
-        @param event: Additional event arguments (Not used).
-        """
+        """Will be called by the <<ListboxSelect>> virtual event.
         
+        :param event: Additional event arguments (Not used).
+        """
         cur_module = self._lsModules.curselection()
         if len(cur_module) != 1:
             cur_module = None
@@ -122,10 +122,11 @@ class Pbgui(CustomPbgui):
         self._ctrl.setChoice(text)
     
     def initModules(self, names):
-        """
+        """Sets up the list of modules
+        
         Will be called by the controller if a new set of modules
         has been loaded.
-        @param names: Module names that will be shown in list.
+        :param names: Module names that will be shown in list.
         """
         self._reset_listbox(self._lsModules)
         self._reset_listbox(self._lsNodes)
@@ -135,13 +136,14 @@ class Pbgui(CustomPbgui):
     
     def initNodes(self, nodes, colors):
         """Initializes nodes list.
+        
         Will be called by the controller if a new module has been chosen
         to configure.
         
-        Note that len(nodes) has to be len(colors)!
-        
-        @param nodes:  Nodes of the module to add.
-        @param colors: colors of the nodes to add.
+        :param nodes:  Nodes of the current modules. (Just names)
+        :param colors: Colors of nodes. The size of this iterable 
+                       container has to be the same as the size 
+                       of *nodes*
         """
         self._reset_listbox(self._lsNodes)
         self._reset_config()
@@ -152,7 +154,13 @@ class Pbgui(CustomPbgui):
                  , foreground=colors[index])
     
     def updateNodes(self, nodes, colors):
+        """Updates nodes list and colors (_lsNodes).
         
+        :param nodes:  List of current nodes that shall be shown.
+        :param colors: Colors of all nodes. The size of this iterable 
+                       container has to be the same as the size 
+                       of *nodes*
+        """
         cur_node = self._lsNodes.curselection()
         
         elm = self._lsNodes.get("0", tkinter.END)
@@ -194,18 +202,35 @@ class Pbgui(CustomPbgui):
             self._lsListconfig.insert(tkinter.END, elm)
     
     def setModuleHelp(self, text):
+        """Just sets text of _labModules control.
+        
+        :param text: Text that shall be displayed next to _lsModules.
+                     Normally this will be some basic information 
+                     about the currently selected module.
+        """
         self._labModules.config(text=text)
     
     def setNodeHelp(self, text):
+        """Just sets text of _labNodes control.
+        
+        :param text: Text that shall be displayed next to _lsNodes.
+                     Normally this will be the *help* member of
+                     the currently selected node.
+        """
         self._labNodes.config(text=text)
     
     def setConfigHelp(self, text):
+        # Not implemented yet...
         pass
     
     def setTextNode(self, choice):
-        """
-        Will be called if a text node has been chosen.
-        @param choice: The configured value (or None).
+        """Sets up gui for a text-based node.
+        
+        If some text-like (that means not list-like or constant)
+        node will be selected, the controller should call this 
+        method to configure the gui to let the user enter some 
+        text or expression.
+        :param choice: The configured value (or None).
         """
         self._reset_config()
         self._enable_config_buttons()
@@ -215,6 +240,13 @@ class Pbgui(CustomPbgui):
             self._root.after(10, self._txTextconfig.focus_force)
     
     def setConstNode(self, choice):
+        """Sets up the gui to just show the current choice.
+        
+        Will only show the current value and not let the user
+        configure it's value.
+        
+        :param choice: Current value or None if not set.
+        """
         self._reset_config()
         self._txTextconfig.config(state='normal')
         if choice is not None:
@@ -222,10 +254,10 @@ class Pbgui(CustomPbgui):
         self._txTextconfig.config(state='disabled')
     
     def setListNode(self, lst, choice):
-        """
-        Will be called if a single list node has been chosen.
-        @param lst:     The list of possible choices.
-        @param choice:  The current choice (or None if no choice has
+        """Sets up the gui to allow the user to choose from a list.
+        
+        :param lst:     The list of possible choices.
+        :param choice:  The current choice (or None if no choice has
                         been made).
         """
         self._reset_config()
@@ -236,10 +268,12 @@ class Pbgui(CustomPbgui):
             self._lsListconfig.selection_set(str(choice))
     
     def setMultiNode(self, lst, choice):
-        """
+        """Sets up the gui to allow the user to choose multiple values.
+        
         Will be called if a multi list node has been chosen.
-        @param lst:     The list of possible choices.
-        @param choice:  The current choice (or None if no choice has
+        
+        :param lst:     The list of possible choices.
+        :param choice:  The current choice (or None if no choice has 
                         been made).
         """
         self._reset_config()
@@ -251,7 +285,8 @@ class Pbgui(CustomPbgui):
                 self._lsListconfig.selection_set(str(index))
     
     def mainloop(self):
-        """
+        """Runs the tk event loop
+        
         This starts a infinite loop until the user presses ok, cancel
         or closes the window.
         """

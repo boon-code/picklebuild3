@@ -13,14 +13,40 @@ import targets
 import pmodules
 import cfgcontrol
 
-VERSION = 'v0.0.1'
+
+__author__ = 'Manuel Huber'
+__copyright__ = "Copyright (c) 2011 Manuel Huber."
+__license__ = 'GPLv3'
+__version__ = '0.0.1'
+__docformat__ = "restructuredtext en"
+
+
+_VERSION = '%prog v' + __version__
+# Version string, used by optparse module.
 
 _PCDIR = '.pconfig'
+# Used by _find_cfg_dir. It's the name of the config dir.
+
 _PCMAIN = 'main.jso'
 _PC_CCF = 'current-config.jso'
 _DEFAULT_SRC = './src/'
 _DEFAULT_DST = './out/'
-# Used by _find_cfg_dir. It's the name of the config dir.
+
+_CMD_USAGE = """Usage: %prog `cmd`
+
+picklebuild commands:
+  setup:  Initializes a new picklebuild project. Can also be used to
+          update source and destination path.
+  add:    Add a file to the index (has to be setup first).
+  rm:     Removes a file from index.
+  status: Shows current status (Index).
+  cfg:    Shows the configure window. Normally, the current config 
+          will be used. If you press ok, it will be saved to current 
+          config, if you press cancle it won't be saved.
+  make:   This command will finally generate output."""
+
+_CMD_DESC = """You can always use the --help option on each
+command to get a more specific help."""
 
 
 class SourceNotFoundError(Exception):
@@ -45,8 +71,10 @@ class NotProperlyConfiguredError(Exception):
 def _get_nn(value, default=None):
     """Return not None (if possible).
     
-    @param value:   Value that will be returned (if not None).
-    @param default: Value that will be returned if value is None.
+    :param value:   Value that will be returned (if not None).
+    :param default: Value that will be returned if value is None.
+    :returns:       Returns value unless value is None. If so
+                    returns default.
     """
     if value is None:
         return default
@@ -55,31 +83,39 @@ def _get_nn(value, default=None):
 
 
 class MainConfig(object):
-    """Covers basic config.
+    """Covers basic configuartion.
     
-    This class represents the current config. This includes
+    This class represents the current configuartion. This includes
     source directory, output directory, ... 
     """
     
     def __init__(self, cwd, autoload=True, failinpc=False):
         """This creates a new instance.
         
-        @param cwd:      The current working directory to start
+        :param cwd:      The current working directory to start
                          searching for a base-directory.
-        @param autoload: If set, loadConfig will automatically 
+        :param autoload: If set, loadConfig will automatically 
                          be called.
-        @param failinpc: Fail if not properly configured.
+        :param failinpc: Fail if not properly configured.
                          This automatically enables autoload.
         """
         self._real_init(cwd)
         if autoload or failinpc:
             self.loadConfig()
-        if failinpc and (not self.isProperConfigured()):
+        if failinpc and (not self.isProperlyConfigured()):
             raise NotProperlyConfiguredError(self.source, self.dest
                  , self.targets, "Not properly set up.")
     
     def _find_base_dir(self, basedir='.'):
+        """This method searchs for a .pconfig directory
         
+        It just checks each directory and if there is no .pconfig
+        directory, it's parent directory will be searched (aso).
+        
+        :param basedir: Current directory that will be searched.
+        :returns:       Returns path to the next pconfig directory
+                        or None if there is no pb project.
+        """
         for i in os.listdir(basedir):
             if i == _PCDIR:
                 path = os.path.realpath(os.path.join(basedir, i))
@@ -90,7 +126,11 @@ class MainConfig(object):
             return self._find_base_dir(basedir=next_path)
     
     def _real_init(self, cwd):
+        """Really initializes this object.
         
+        :param cwd: Searching will start in this directory. Normally
+                    this should be the current working directory.
+        """
         self.base_dir = None
         self.config_dir = None
         self.targets = None
@@ -103,16 +143,49 @@ class MainConfig(object):
             self.config_dir = os.path.join(self.base_dir, _PCDIR)
     
     def foundConfig(self):
+        """Returns if a pb project could be found.
+        
+        That means, a .pconfig directory could be found and it's
+        path will be stored to *config_dir* member, while the
+        root path (*config_dir*/..) will be saved to *base_dir*
+        member.
+        
+        :returns: True if basic paths are set up, else False.
+        """
         return (None not in (self.base_dir, self.config_dir))
     
-    def isProperConfigured(self):
+    def isProperlyConfigured(self):
+        """Returns, if all parameters are properly set up.
+        
+        *source*, *dest*, and *targets* members have to be set up
+        since these members will be used by other parts of this 
+        software. If these members are set, the configuration is valid
+        and all subcommands should work. If not, the `setup` command
+        should be used to initialize the project.
+        
+        :returns: True if proper configured, else False.
+        """
         return (None not in (self.source, self.dest, self.targets))
     
     def fullSource(self):
+        """Returns a full path to the source directory.
+        
+        Note that this method will fail if this object is not 
+        initialized and properly configured.
+        
+        :returns: Full path to the source dirctory.
+        """
         src = os.path.join(self.base_dir, self.source)
         return os.path.normpath(src)
     
     def fullDestination(self):
+        """Returns the full path to the destination directory.
+        
+        Note that this method will fail if this object is not
+        initialized and properly configured.
+        
+        :returns: Full path to the destination directory.
+        """
         dst = os.path.join(self.base_dir, self.dest)
         return os.path.normpath(dst)
     
@@ -173,16 +246,16 @@ class MainConfig(object):
             raise Exception("Couldn't setup config dir")
     
     def addTarget(self, path):
-        if self.isProperConfigured():
+        if self.isProperlyConfigured():
             self.targets.add(os.path.realpath(path))
     
     def rmTarget(self, path):
-        if self.isProperConfigured():
+        if self.isProperlyConfigured():
             self.targets.remove(os.path.realpath(path))
     
     def saveConfig(self, leave_tgl=False):
         
-        if self.isProperConfigured():
+        if self.isProperlyConfigured():
             path = os.path.join(self.config_dir, _PCMAIN)
             cfg = dict()
             cfg['src'] = self.source
@@ -228,7 +301,8 @@ def _expand_all(args):
 
 
 def add(args):
-    parser = OptionParser(usage="usage: %prog add [options] files")
+    parser = OptionParser(usage="usage: %prog add [options] files"
+     , version=_VERSION)
     options, args = parser.parse_args(args)
     
     if len(args) < 1:
@@ -241,7 +315,8 @@ def add(args):
         cfg.targets.dumpTree()
 
 def rm(args):
-    parser = OptionParser(usage="usage: %prog rm [options] files")
+    parser = OptionParser(usage="usage: %prog rm [options] files"
+     , version=_VERSION)
     options, args = parser.parse_args(args)
     
     if len(args) < 1:
@@ -255,7 +330,8 @@ def rm(args):
 
 def setup(args):
     
-    parser = OptionParser(usage="usage: %prog setup [options]")
+    parser = OptionParser(usage="usage: %prog setup [options]"
+     , version=_VERSION)
     parser.add_option("-s", "--source-dir", dest="src"
      , help="sets source directory (default is %s" % _DEFAULT_SRC)
     parser.add_option("-d", "--destination-dir", dest="dst"
@@ -277,7 +353,7 @@ def setup(args):
             print("Found initialized pconfig dir (%s)"
              % cfg.config_dir)
             cfg.loadConfig(fail=False)
-            if cfg.isProperConfigured():
+            if cfg.isProperlyConfigured():
                 print("source: ", cfg.source)
                 print("dest: ", cfg.dest)
                 print("Everything properly set up.")
@@ -299,7 +375,8 @@ def setup(args):
 
 
 def status(args):
-    parser = OptionParser(usage="usage: %prog status")
+    parser = OptionParser(usage="usage: %prog status"
+     , version=_VERSION)
     options, args = parser.parse_args(args)
     
     cfg = MainConfig(os.getcwd(), failinpc=True)
@@ -307,7 +384,8 @@ def status(args):
 
 
 def configure(args):
-    parser = OptionParser(usage="usage: %prog configure")
+    parser = OptionParser(usage="usage: %prog configure"
+     , version=_VERSION)
     options, args = parser.parse_args(args)
     
     cfg = MainConfig(os.getcwd(), failinpc=True)
@@ -327,7 +405,8 @@ def configure(args):
 
 
 def make(args):
-    parser = OptionParser(usage="usage: %prog make [options]")
+    parser = OptionParser(usage="usage: %prog make [options]"
+     , version=_VERSION)
     parser.add_option("-n", "--not-interactive", dest="interactive"
      , help="Use this flag to disable interactive mode."
      , default=True, action="store_false")
@@ -363,20 +442,18 @@ def make(args):
     man.generateOutput(cfg.fullDestination())
 
 
-def showMain(args):
-    parser = OptionParser(usage="usage: %prog cmd")
-    parser.add_option("-V", "--version", action="store_true"
-         , help="prints current version to stdout")
-    parser.set_defaults(version=False)
+def showMain(args, cmd):
+    parser = OptionParser(usage=_CMD_USAGE
+     , description=_CMD_DESC, version=_VERSION)
     options, args = parser.parse_args(args)
     
-    if options.version:
-        print("pbuild version %s" % VERSION)
-    else:
-        parser.print_help(file=sys.stderr)
+    if cmd is not None:
+        print("invalid command '%s'" % cmd)
 
 
 def main(args):
+    
+    cmd = None
     try:
         cmd = args[1]
         if cmd in ('setup', 'init', 'su'):
@@ -391,8 +468,6 @@ def main(args):
             return make(args[2:])
         elif cmd in ('cfg', 'config', 'configure'):
             return configure(args[2:])
-        else:
-            print("invalid argument '%s'" % cmd)
     except IndexError:
         pass
     except SourceNotFoundError as e:
@@ -401,7 +476,7 @@ def main(args):
         print("Not properly configured.\n%s" % e.error_source)
         print("Use 'setup' command to set up project.")
     
-    return showMain(args)
+    return showMain(args, cmd)
 
 
 if __name__ == '__main__':
