@@ -20,6 +20,7 @@ __copyright__ = "Copyright (c) 2011 Manuel Huber."
 __license__ = 'GPLv3'
 __docformat__ = "restructuredtext en"
 
+
 class Pbgui(CustomPbgui):
     
     def __init__(self, controller):

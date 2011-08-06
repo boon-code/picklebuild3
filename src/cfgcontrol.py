@@ -36,7 +36,15 @@ class ConfigController(object):
     Note that the controller is rather messy, there is a lot to do
     here.
     """
+    
     def __init__(self, gui_class, mod_man):
+        """Initializes a new instance.
+        
+        :param gui_class: This class will be initialized and
+                          used by the controller.
+        :param mod_man:   The module manager that will be used
+                          by this class.
+        """
         self._mman = mod_man
         self._gui = gui_class(self)
         names = mod_man.getModuleNames()

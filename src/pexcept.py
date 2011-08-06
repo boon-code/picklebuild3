@@ -2,15 +2,24 @@
 # -*- coding: utf-8 -*-
 
 
+
+__author__ = 'Manuel Huber'
+__copyright__ = "Copyright (c) 2011 Manuel Huber."
+__license__ = 'GPLv3'
+__docformat__ = "restructuredtext en"
+
+
 class PickleBuildException(Exception):
-    """
-    Basic picklebuild exception.
+    """Basic picklebuild exception.
+    
+    Should be used as base class for every new Exception picklebuild
+    raises.
     """
     
     def __init__(self, *args):
-        """
-        Basic picklebuild exception constructor.
-        @param args: These parameter will be passed
+        """Basic picklebuild exception constructor.
+        
+        :param args: These parameter will be passed
                      to the Exception class.
         """
         super(PickleBuildException, self).__init__(*args)
