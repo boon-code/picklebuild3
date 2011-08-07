@@ -5,6 +5,7 @@ from optparse import OptionParser
 import sys
 import os
 import glob
+import logging
 from pbgui_imp import Pbgui
 import pfile
 import targets
@@ -30,7 +31,14 @@ _PC_CCF = 'current-config.jso'
 _DEFAULT_SRC = './src/'
 _DEFAULT_DST = './out/'
 
-_CMD_USAGE = """Usage: %prog `cmd`
+_DEFAULT_LOG_FORMAT = "%(name)s : %(threadName)s : %(levelname)s \
+: %(message)s"
+
+_VERBOSITY_LEVEL = {'CRITICAL' : logging.CRITICAL
+ , 'ERROR' : logging.ERROR, 'WARN' : logging.WARNING
+ , 'INFO' : logging.INFO, 'DEBUG' : logging.DEBUG}
+
+_CMD_USAGE = """%prog `cmd`
 
 picklebuild commands:
   setup:  Initializes a new picklebuild project. Can also be used to
@@ -299,8 +307,7 @@ def _expand_all(args):
 
 
 def add(args):
-    parser = OptionParser(usage="usage: %prog add [options] files"
-     , version=_VERSION)
+    parser.usage="usage: %prog add [options] files"
     options, args = parser.parse_args(args)
     
     if len(args) < 1:
@@ -312,9 +319,8 @@ def add(args):
         cfg.saveConfig()
         cfg.targets.dumpTree()
 
-def rm(args):
-    parser = OptionParser(usage="usage: %prog rm [options] files"
-     , version=_VERSION)
+def rm(parser, args):
+    parser.usage="usage: %prog rm [options] files"
     options, args = parser.parse_args(args)
     
     if len(args) < 1:
@@ -326,10 +332,9 @@ def rm(args):
         cfg.saveConfig()
         cfg.targets.dumpTree()
 
-def setup(args):
+def setup(parser, args):
     
-    parser = OptionParser(usage="usage: %prog setup [options]"
-     , version=_VERSION)
+    parser.usage="usage: %prog setup [options]"
     parser.add_option("-s", "--source-dir", dest="src"
      , help="sets source directory (default is %s" % _DEFAULT_SRC)
     parser.add_option("-d", "--destination-dir", dest="dst"
@@ -372,18 +377,16 @@ def setup(args):
         cfg.saveConfig()
 
 
-def status(args):
-    parser = OptionParser(usage="usage: %prog status"
-     , version=_VERSION)
+def status(parser, args):
+    parser.usage="usage: %prog status"
     options, args = parser.parse_args(args)
     
     cfg = MainConfig(os.getcwd(), failinpc=True)
     cfg.targets.dumpTree()
 
 
-def configure(args):
-    parser = OptionParser(usage="usage: %prog configure"
-     , version=_VERSION)
+def configure(parser, args):
+    parser.usage="usage: %prog configure"
     options, args = parser.parse_args(args)
     
     cfg = MainConfig(os.getcwd(), failinpc=True)
@@ -402,9 +405,8 @@ def configure(args):
         pfile.saveConfigFile(path, man.collectConfig())
 
 
-def make(args):
-    parser = OptionParser(usage="usage: %prog make [options]"
-     , version=_VERSION)
+def make(parser, args):
+    parser.usage="usage: %prog make [options]"
     parser.add_option("-n", "--not-interactive", dest="interactive"
      , help="Use this flag to disable interactive mode."
      , default=True, action="store_false")
@@ -440,32 +442,52 @@ def make(args):
     man.generateOutput(cfg.fullDestination())
 
 
-def showMain(args, cmd):
-    parser = OptionParser(usage=_CMD_USAGE
-     , description=_CMD_DESC, version=_VERSION)
-    options, args = parser.parse_args(args)
+def _set_level_callback(option, opt_str, value, parser, *args, **kgs):
     
-    if cmd is not None:
-        print("invalid command '%s'" % cmd)
+    root = logging.getLogger()
+    root.setLevel(_VERBOSITY_LEVEL[value])
+    logging.debug("Setting logging level to '%s'." % value)
 
 
-def main(args):
+def main(args, loglevel=logging.DEBUG):
+    """Main function, will be called if this module script is executed.
+    
+    :param args:     Arguments passed to the application.
+                     *sys.argv* wasn't used to make it easier to 
+                     to call this script from some other script that
+                     for example generates the commandline itself.
+    :param loglevel: Optional parameter that sets the default 
+                     logging level (controls, which messages will
+                     be logged).
+    """
+    logging.basicConfig(stream=sys.stderr, format=_DEFAULT_LOG_FORMAT
+     , level=loglevel)
+    
+    logging.debug("Configuring logging system.")
+    
+    parser = OptionParser(version=_VERSION)
+    verb_level = tuple(_VERBOSITY_LEVEL)
+    parser.add_option("-v", action="callback", dest='level'
+     , choices=verb_level, type='choice'
+     , callback=_set_level_callback
+     , help="Sets verbosity level [has to be one of %s]."
+     % str(verb_level))
     
     cmd = None
     try:
         cmd = args[1]
         if cmd in ('setup', 'init', 'su'):
-            return setup(args[2:])
+            return setup(parser, args[2:])
         elif cmd == 'add':
-            return add(args[2:])
+            return add(parser, args[2:])
         elif cmd in ('rm', 'remove'):
-            return rm(args[2:])
+            return rm(parser, args[2:])
         elif cmd in ('status', 'st'):
-            return status(args[2:])
+            return status(parser, args[2:])
         elif cmd == 'make':
-            return make(args[2:])
+            return make(parser, args[2:])
         elif cmd in ('cfg', 'config', 'configure'):
-            return configure(args[2:])
+            return configure(parser, args[2:])
     except IndexError:
         pass
     except SourceNotFoundError as e:
@@ -473,9 +495,19 @@ def main(args):
     except NotProperlyConfiguredError as e:
         print("Not properly configured.\n%s" % e.error_source)
         print("Use 'setup' command to set up project.")
+    except:
+        logging.shutdown()
+        raise
     
-    return showMain(args, cmd)
+    parser.usage=_CMD_USAGE
+    parser.description=_CMD_DESC
+    options, args = parser.parse_args(args)
+    
+    if (cmd is not None) and len(args) > 1:
+        logging.error("Invalid command '%s'. See '--help'" % cmd)
+    else:
+        parser.print_help(file=sys.stdout)
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main(sys.argv, logging.DEBUG)
