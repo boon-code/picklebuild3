@@ -10,6 +10,7 @@ and tries to parse inline code. Only use parseData function.
 import sys
 import os
 import re
+import traceback
 
 
 __author__ = 'Manuel Huber'
@@ -36,6 +37,7 @@ def _eval_data(code, env):
         sys.exit()
     except Exception:
         sys.stderr.write(traceback.format_exc())
+        sys.stderr.write(code)
         sys.exit(1)
 
 

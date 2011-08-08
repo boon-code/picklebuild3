@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import shlex
+import json
 import shutil
 import math
 import logging
@@ -385,7 +386,11 @@ class ExprChoice(BasicChoice):
     
     The expression will simply be entered by the user. Since 
     this class is derived from BasicChoice, it also supports 
-    format, check, help, ...
+    check, help, ...
+    
+    Recent changes:
+    
+    - Use format function that parses the text using json.
     """
     
     __slots__ = tuple()
@@ -398,7 +403,14 @@ class ExprChoice(BasicChoice):
                       (or parameters that are needed by 
                       a base class)
         """
-        BasicChoice.__init__(self, name, **kargs)
+        kargs.pop("format", None)
+        BasicChoice.__init__(self, name, format=self._expr_format
+         , **kargs)
+    
+    def _expr_format(self, value):
+        """Format method used to create objects from *value*
+        """
+        return json.loads(value)
     
     def getNodeType(self):
         """This method returns the node type.
@@ -751,15 +763,15 @@ class DependencyFrame(object):
         :param mod: The module node that includes this 
                     frame. (used to resolve dependencies).
         """
-        deps = set()
+        deps = list()
         for dep in self._deps:
             if (isinstance(dep, puser.Node)
              or isinstance(dep, puser.ExternalNode)):
                 node = mod.getNode(dep)
-                deps.add(node)
+                deps.append(node)
                 node.addInfoSeeker(self)
             else:
-                deps.add(dep)
+                deps.append(dep)
         self._deps = deps
         self._status |= self.RESOLVED
     

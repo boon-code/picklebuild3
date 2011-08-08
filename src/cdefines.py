@@ -17,7 +17,7 @@ __license__ = 'GPLv3'
 __docformat__ = "restructuredtext en"
 
 _HEADER_FILE = 'configure_%s.h'
-_DEFINE_LINE = '#define %s (%s)\n'
+_DEFINE_LINE = '#define %s %s\n'
 
 
 def generateHeader(mod, dst, cfgdict):
