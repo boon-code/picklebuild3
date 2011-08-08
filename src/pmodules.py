@@ -1,28 +1,33 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""This module is all about the logic of the program.
+
+It contains all objects that are needed to hold configuration.
+"""
+
 import os
 import re
 import sys
 import shlex
 import shutil
 import math
+import logging
 import collections
 from warnings import warn
 from optparse import OptionParser
-import plog
+from functools import partial
 import targets
 import puser
 import peval
 from pexcept import NotYetWorkingWarning
 
-"""
-This module is all about the logic of the program and it's
-data structure.
-"""
 
 __author__ = 'Manuel Huber'
+__copyright__ = "Copyright (c) 2011 Manuel Huber."
 __license__ = 'GPLv3'
+#__docformat__ = "restructuredtext en"
+
 
 # node types:
 NT_TEXT = 'text'
@@ -31,7 +36,7 @@ NT_MULTI = 'multi'
 NT_CONST = 'value'
 
 # just for logging
-_PLOG_NAME = 'modules'
+_LOGGER_NAME = 'modules'
 
 # regular expressions for matching configure scripts
 _CFG_SCRIPTFILE_RE = re.compile("^configure_([^\\s]+)[.]{1}py$")
@@ -111,7 +116,7 @@ class BasicNode(object):
     
     CONFIGURED = 1
     
-    _log = plog.clone_system_logger(_PLOG_NAME)
+    _log = logging.getLogger(_LOGGER_NAME)
     __slots__ = ('help', '_name', '_overrider', '_flags', '_iseeker'
                , '_status', '_value', '_unresolved_flags')
     
@@ -1121,7 +1126,7 @@ class ModuleNode(object):
         self._uname = _unique_name(name)
         self._realname = name
         self._basepath = os.path.join(src, relpath)
-        self._log = plog.clone_system_logger(_PLOG_NAME)
+        self._log = logging.getLogger(_LOGGER_NAME)
         self._script_path = None
         self._used_mods = list()
         # Will (directly) be used by ModuleManager
@@ -1296,12 +1301,11 @@ class ModuleNode(object):
         for frame in self._cfg.frames:
             frame.executeFunction(self._cfg)
     
-    def generateDst(self, dst):
-        
-        #modpath = os.path.join(dst, self._rpath)
+    def generateDst(self, dst, cbcfg=None):
         
         env = {'__builtins__' : __builtins__, 'math' : math}
-        env.update(self.getConfigDict(formatted=True, inc_used=True))
+        cfg_dict = self.getConfigDict(formatted=True, inc_used=True)
+        env.update(cfg_dict)
         
         for i in self.targets:
             for (path, tget) in i.items(src=dst):
@@ -1309,6 +1313,8 @@ class ModuleNode(object):
                     data = f.read()
                 with open(path, 'w') as f:
                     peval.parseData(data, f, env)
+        if isinstance(cbcfg, collections.Callable):
+            cbcfg(self, dst, cfg_dict)
     
     def isFullyConfigured(self):
         """Checks if all nodes are configured.
@@ -1381,8 +1387,6 @@ class ModuleNode(object):
 
 class ModuleManager(object):
     
-    _extensions = []
-    
     def __init__(self, src):
         """
         @param src: The source directory where all modules
@@ -1390,7 +1394,7 @@ class ModuleManager(object):
         """
         self._src = src
         self._mods = dict()
-        self._log = plog.clone_system_logger(_PLOG_NAME)
+        self._log = logging.getLogger(_LOGGER_NAME)
         self._config = dict()
         self._targets = []
     
@@ -1559,12 +1563,12 @@ class ModuleManager(object):
                      , NotYetWorkingWarning)
         return ret
     
-    def generateOutput(self, dst):
+    def generateOutput(self, dst, cbcfg=None):
         
         shutil.copytree(self._src, dst)
         
         for mod in self._mods.values():
-            mod.generateDst(dst)
+            mod.generateDst(dst, cbcfg=cbcfg)
     
     def dump(self):
         """Dumps current module-list.

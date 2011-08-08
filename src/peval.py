@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import sys
-import os
-import re
-
 """This module is about inline python code evaluation.
 
 This is a relatively unchanged version from my old buildsystem
 and tries to parse inline code. Only use parseData function.
 """
+
+import sys
+import os
+import re
+
 
 __author__ = 'Manuel Huber'
 __copyright__ = "Copyright (c) 2011 Manuel Huber."

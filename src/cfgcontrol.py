@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""Controller part of MVC pattern.
+"""
+
 from warnings import warn
 import collections
-
 from pexcept import NotYetWorkingWarning
 import pmodules
 import pfile
 
-"""Controller part of MVC pattern.
-"""
 
 __author__ = 'Manuel Huber'
 __copyright__ = "Copyright (c) 2011 Manuel Huber."

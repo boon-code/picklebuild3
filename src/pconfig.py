@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""This is the main module of picklebuild.
+
+This module is indent as command line tool to manage configuration
+of (f.e.) a C Project.
+"""
+
 from optparse import OptionParser
 import sys
 import os
@@ -11,6 +17,7 @@ import pfile
 import targets
 import pmodules
 import cfgcontrol
+import cdefines
 
 
 __author__ = 'Manuel Huber'
@@ -196,7 +203,14 @@ class MainConfig(object):
         return os.path.normpath(dst)
     
     def setupFromObject(self, obj, cwd=None):
+        """Initializes a pb project.
         
+        Extracts source and destination from an object and passes them
+        to the setup method.
+        
+        :param obj: Object that contains *src* and *dst* (source
+                    directory and destination Directory).
+        """
         cfg = dict()
         try:
             cfg['src'] = obj.src
@@ -207,7 +221,19 @@ class MainConfig(object):
         return self.setup(cfg, cwd=cwd)
     
     def setup(self, cfg, cwd=None, fail=True):
+        """Initializes this object with necessary data.
         
+        If no pb directory is set up, a new one will be initialized
+        (this could fail).
+        
+        :param cfg:  Configuration dictionary that contains all
+                     information, necessary to setup the project
+                     (Which means *src*, *dst* und *tgl*.
+        :param cwd:  Current working directory to start searching.
+        :param fail: If fail is set to False, no exceptions (except
+                     **TODO**) will be thrown (This is internally 
+                     used by loadConfig). Default is True.
+        """
         if not self.foundConfig():
             if cwd is None:
                 cwd = os.getcwd()
@@ -252,15 +278,36 @@ class MainConfig(object):
             raise Exception("Couldn't setup config dir")
     
     def addTarget(self, path):
+        """Tries to add a path to target list.
+        
+        Note that this only works if this object has been set up
+        correctly.
+        
+        :param path: Path to add to the target list.
+        """
         if self.isProperlyConfigured():
             self.targets.add(os.path.realpath(path))
     
     def rmTarget(self, path):
+        """Tries to remove a path from target list.
+        
+        Note that this only works if this object has been set up
+        correctly.
+        
+        :param path: Path to remove from target list.
+        """
         if self.isProperlyConfigured():
             self.targets.remove(os.path.realpath(path))
     
     def saveConfig(self, leave_tgl=False):
+        """Saves current configuration to the project directory.
         
+        TODO: more details...
+        
+        :param leave_tgl: If targets haven't been load yet, this
+                          flag indicates, that the configuration will
+                          be load first.
+        """
         if self.isProperlyConfigured():
             path = os.path.join(self.config_dir, _PCMAIN)
             cfg = dict()
@@ -411,7 +458,10 @@ def make(parser, args):
      , help="Use this flag to disable interactive mode."
      , default=True, action="store_false")
     parser.add_option("-l", "--load-config", dest="load"
-    , help="Load a config file before starting build process")
+     , help="Load a config file before starting build process.")
+    parser.add_option("-c", "--create-c-headers", dest="cheaders"
+     , help="Indicates, that c-header files will be included."
+     , default=False, action="store_true")
     options, args = parser.parse_args(args)
     
     cfg = MainConfig(os.getcwd(), failinpc=True)
@@ -439,7 +489,11 @@ def make(parser, args):
         print("%s:" % name)
         for key, value in mod.items():
             print(" - %s = '%s'" % (key, str(value)))
-    man.generateOutput(cfg.fullDestination())
+    if options.cheaders:
+        man.generateOutput(cfg.fullDestination()
+         , cbcfg=cdefines.generateHeader)
+    else:
+        man.generateOutput(cfg.fullDestination())
 
 
 def _set_level_callback(option, opt_str, value, parser, *args, **kgs):

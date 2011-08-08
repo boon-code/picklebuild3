@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""This module implements basic classes to handle target-files.
+"""
+
 from warnings import warn
 import os.path
 
 
-"""
-This module implements basic classes to handle target-files.
-"""
-
 __author__ = 'Manuel Huber'
+__copyright__ = "Copyright (c) 2011 Manuel Huber."
 __license__ = 'GPLv3'
+#__docformat__ = "restructuredtext en"
 
 
 class SkippedTargetWarning(UserWarning):

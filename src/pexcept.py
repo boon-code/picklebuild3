@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 
-
 __author__ = 'Manuel Huber'
 __copyright__ = "Copyright (c) 2011 Manuel Huber."
 __license__ = 'GPLv3'

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
+"""The objects of this module are used in external configure scripts.
+
 This file contains objects that are used by the external script
 file. Only these objects can directly be modified by the
 script.
@@ -19,8 +20,12 @@ TODO: Some parts of the text above haven't been implemented yet.
 Especially resolving doesn't work stepwise yet.
 """
 
+
 __author__ = 'Manuel Huber'
+__copyright__ = "Copyright (c) 2011 Manuel Huber."
 __license__ = 'GPLv3'
+#__docformat__ = "restructuredtext en"
+
 
 class HiddenObject(object):
     """This is a base class for classes with hidden members.

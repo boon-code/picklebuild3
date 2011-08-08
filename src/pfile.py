@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""This module is about loading and saving files.
+
+This module covers loading and saving external files:
+
+- loading configuartion files
+- loading main config file
+"""
+
 import json
 
-"""
-This module covers loading and saving external files:
-    - loading configuartion files
-    - loading main config file
-"""
 
 __author__ = 'Manuel Huber'
+__copyright__ = "Copyright (c) 2011 Manuel Huber."
 __license__ = 'GPLv3'
+__docformat__ = "restructuredtext en"
+
 
 def loadConfigFile(path):
     
