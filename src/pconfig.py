@@ -23,7 +23,7 @@ import cdefines
 __author__ = 'Manuel Huber'
 __copyright__ = "Copyright (c) 2011 Manuel Huber."
 __license__ = 'GPLv3'
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 __docformat__ = "restructuredtext en"
 
 

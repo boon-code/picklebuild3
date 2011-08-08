@@ -26,7 +26,7 @@ from pexcept import NotYetWorkingWarning
 __author__ = 'Manuel Huber'
 __copyright__ = "Copyright (c) 2011 Manuel Huber."
 __license__ = 'GPLv3'
-#__docformat__ = "restructuredtext en"
+__docformat__ = "restructuredtext en"
 
 
 # node types:
@@ -102,7 +102,7 @@ def _unique_name(name):
     """Creates a unique module (or node) name.
     
     Basically it just returns an uppercase version.
-    @param name: The name to process.
+    :param name: The name to process.
     """
     return name.strip().upper()
 
@@ -123,9 +123,9 @@ class BasicNode(object):
     def __init__(self, name, help=None, flags=None, **kgs):
         """Creates a new node with name 'name'.
         
-        @param name:  Name of this Node.
-        @param help:  Optional help messages.
-        @param flags: Flags which have to be true to enable this
+        :param name:  Name of this Node.
+        :param help:  Optional help messages.
+        :param flags: Flags which have to be true to enable this
                       node.
         """
         self._name = name
@@ -150,14 +150,14 @@ class BasicNode(object):
         """This method returns the node type.
         
         It has to be implemented by every node-class.
-        @returns: A string that represents the type of this node.
+        :returns: A string that represents the type of this node.
         """
         pass
     
     def getName(self):
         """This method returns the name of this node.
         
-        @returns: Returns the name of this node.
+        :returns: Returns the name of this node.
         """
         return self._name
     
@@ -167,7 +167,7 @@ class BasicNode(object):
         There can only be one node that overrides this one.
         TODO: Should throw an Exception if overriding fails.
         
-        @param node: Node that configures this node.
+        :param node: Node that configures this node.
         """
         if self._overrider is not None:
             print("change that!")
@@ -184,7 +184,7 @@ class BasicNode(object):
         (self._unresolved_flags only contains names) and if the node
         could be found, it will be included in _flags.
         
-        @param mod: module node that is needed to resolve.
+        :param mod: module node that is needed to resolve.
         """
         for flag in self._unresolved_flags:
             if not isinstance(flag, BasicNode):
@@ -199,7 +199,7 @@ class BasicNode(object):
         for external nodes) will contain the value of this node.
         Therefore this node can't be configured.
         
-        @returns: True if this one is overriden.
+        :returns: True if this one is overriden.
         """
         if self._overrider is None:
             return False
@@ -212,7 +212,7 @@ class BasicNode(object):
         Being disabled means that the input of this node is not needed.
         TODO: maybe also include unresolved flags...
         
-        @returns: Returns True if this node really is disabled,
+        :returns: Returns True if this node really is disabled,
                   else False.
         """
         for flag in self._flags:
@@ -226,29 +226,30 @@ class BasicNode(object):
     def isConfigured(self):
         """This method checks if a value has been configured.
         
-        @returns: Returns True if value has been configured, else
+        :returns: Returns True if value has been configured, else
                   False.
         """
         return (self._status & self.CONFIGURED == self.CONFIGURED)
     
     def readValue(self, **ignore):
         """Reads configuration an returns value.
-        @param ignore: Ignored arguments used for compatiblity
+        
+        :param ignore: Ignored arguments used for compatiblity
                        with BasicChoice. (This is necessary to
                        take 'formatted' keyword argument of
-                       BasicChoice.
-        @returns:      Returns the current configured value.
+                       BasicChoice).
+        :returns:      Returns the current configured value.
         """
         return self._value
     
     def addInfoSeeker(self, seeker):
         """This method add a node that needs the input of this node.
         
-        The 'seeker' will be added to the _iseeker list and if this
+        The *seeker* will be added to the _iseeker list and if this
         node changes somehow, all 'seeker' in the list will be
-        notified (Their 'update' method will be called).
+        notified (Their *update* method will be called).
         
-        @param seeker: The node that want to be notified if this one 
+        :param seeker: The node that want to be notified if this one 
                        will be set up.
         """
         self._iseeker.add(seeker)
@@ -292,10 +293,10 @@ class BasicChoice(BasicNode):
     def __init__(self, name, check=None, format=None, **kgs):
         """Creates a new choice-node with name 'name'.
         
-        @param name:    Name of this node.
-        @param check:   A check method (checks applied value).
-        @param format:  This method formats the actual value.
-        @param kgs:     Collects unsupported arguments (or 
+        :param name:    Name of this node.
+        :param check:   A check method (checks applied value).
+        :param format:  This method formats the actual value.
+        :param kgs:     Collects unsupported arguments (or
                         arguments that will be collected by
                         BasicNode).
         """
@@ -306,10 +307,10 @@ class BasicChoice(BasicNode):
     def readValue(self, formatted=False):
         """Reads configuration an returns value
         
-        @param formatted: If formatted is True, the current value will
+        :param formatted: If formatted is True, the current value will
                           be formatted by the format method 
                           (see __init__) if set.
-        @returns: Returns value.
+        :returns: Returns value.
         """
         value = super().readValue()
         if formatted and isinstance(self._format, collections.Callable):
@@ -323,7 +324,7 @@ class BasicChoice(BasicNode):
         node to configured. It's save to call this method from
         a subclass.
         
-        @param value: New value that shall be configured.
+        :param value: New value that shall be configured.
         """
         if ((value != self._value)
          or ((self._status & self.CONFIGURED) != self.CONFIGURED)):
@@ -334,8 +335,8 @@ class BasicChoice(BasicNode):
     def setValue(self, value):
         """Configures a new value.
         
-        @param value: New value that will be set.
-        @returns:     Returns True if value could be set, else False
+        :param value: New value that will be set.
+        :returns:     Returns True if value could be set, else False
                       (If for example check function returns False)
         """
         if isinstance(self._check, collections.Callable):
@@ -361,9 +362,9 @@ class ConstValue(BasicNode):
     def __init__(self, name, value, **kgs):
         """Initializes a new instance.
         
-        @param name:  The name of this node.
-        @param value: The actual value of this node.
-        @param kgs:   Collects unsupported parameters
+        :param name:  The name of this node.
+        :param value: The actual value of this node.
+        :param kgs:   Collects unsupported parameters
                       (or parameters that are needed by 
                       a base class)
         """
@@ -374,7 +375,7 @@ class ConstValue(BasicNode):
     def getNodeType(self):
         """This method returns the node type.
         
-        @returns: A string that represents the type of this node.
+        :returns: A string that represents the type of this node.
         """
         return NT_CONST
 
@@ -392,8 +393,8 @@ class ExprChoice(BasicChoice):
     def __init__(self, name, **kargs):
         """Initializes a new node.
         
-        @param name:  The name of this node.
-        @param kargs: Collects unsupported parameters
+        :param name:  The name of this node.
+        :param kargs: Collects unsupported parameters
                       (or parameters that are needed by 
                       a base class)
         """
@@ -402,7 +403,7 @@ class ExprChoice(BasicChoice):
     def getNodeType(self):
         """This method returns the node type.
         
-        @returns: A string that represents the type of this node.
+        :returns: A string that represents the type of this node.
         """
         return NT_TEXT
 
@@ -417,8 +418,8 @@ class InputChoice(BasicChoice):
     def __init__(self, name, **kargs):
         """Initializes a new node.
         
-        @param name:  Name of this node.
-        @param kargs: Collects unsupported parameters
+        :param name:  Name of this node.
+        :param kargs: Collects unsupported parameters
                       (or parameters that are needed by 
                       a base class)
                       Note that 'format' will be ignored.
@@ -428,14 +429,14 @@ class InputChoice(BasicChoice):
         BasicChoice.__init__(self, name, **kargs)
     
     def _format_value(self, value):
-        """This method formats 'value'
+        """This method formats *value*
         
         It checks that no ' " ' characters mess up the 
         string constant and adds them at the start and 
         at the end of the string.
         
-        @param value: Value to format.
-        @returns:     Formatted string.
+        :param value: Value to format.
+        :returns:     Formatted string.
         """
         value = value.replace('\\', '\\\\')
         value = value.replace('"', '\\"')
@@ -444,7 +445,7 @@ class InputChoice(BasicChoice):
     def getNodeType(self):
         """This method returns the node type.
         
-        @returns: A string that represents the type of this node.
+        :returns: A string that represents the type of this node.
         """
         return NT_TEXT
 
@@ -462,13 +463,13 @@ class BasicListChoice(BasicChoice):
     will be included).
     """
     def __init__(self, name, ilist, viewlist=None, **kargs):
-        """Creates a new list node with name 'name'.
+        """Creates a new list node with name *name*.
          
-        @param name:     Name of node to create.
-        @param ilist:    List object to choose from. Has to be a list
+        :param name:     Name of node to create.
+        :param ilist:    List object to choose from. Has to be a list
                          or a generator object.   
-        @param viewlist: Optional viewlist (will be shown to the user).
-        @param kargs:    Additional arguments (see BasicChoice).
+        :param viewlist: Optional viewlist (will be shown to the user).
+        :param kargs:    Additional arguments (see BasicChoice).
         """
         BasicChoice.__init__(self, name, **kargs)
         self._view = None
@@ -491,7 +492,7 @@ class BasicListChoice(BasicChoice):
         TODO: Maybe I should add a type check and handle
         dictionarys a little bit different...
         
-        @returns: Returns a tuple that contains all items of
+        :returns: Returns a tuple that contains all items of
                   self._list as string.
         """
         return tuple(str(i) for i in self._list)
@@ -499,9 +500,9 @@ class BasicListChoice(BasicChoice):
     def _format_view(self, viewlist):
         """Creates a nice list to choose from.
         
-        @param viewlist: The view list has got some symbolic
+        :param viewlist: The view list has got some symbolic
                          names for not easily readable values.
-        @returns:        A tuple with the viewlist that will be shown
+        :returns:        A tuple with the viewlist that will be shown
                          to the user.
         """
         for (i,v) in enumerate(viewlist):
@@ -516,20 +517,20 @@ class BasicListChoice(BasicChoice):
         """This method returns the view-list.
         
         Viewlist is a list that can be presented to the user
-        see __init__ and _format_view for more information.
+        see `__init__` and `_format_view` for more information.
         
-        @returns:   Returns a list that can be presented to the user.
+        :returns:   Returns a list that can be presented to the user.
         """
         return self._view
     
     def _get_index(self, value):
-        """This method tries to find 'value' in list.
+        """This method tries to find *value* in list.
         
         Note: Be carefull if you call this method.
         
-        @param value: The value this method returns the
+        :param value: The value this method returns the
                       index for.
-        @returns:     The index of value (in the list).
+        :returns:     The index of value (in the list).
         """
         for (i, v) in enumerate(self._list):
             if v == value:
@@ -539,7 +540,7 @@ class BasicListChoice(BasicChoice):
     def getList(self):
         """This method returns the real list of values that can
         be chosen.
-        @returns: List of values that can be chosen.
+        :returns: List of values that can be chosen.
         """
         return self._list
 
@@ -553,9 +554,9 @@ class ListChoice(BasicListChoice):
     def __init__(self, name, ilist, **kargs):
         """Initializes a new instance.
         
-        @param name:  Name of this node.
-        @param ilist: List to choose from.
-        @param kargs: Other arguments that are needed
+        :param name:  Name of this node.
+        :param ilist: List to choose from.
+        :param kargs: Other arguments that are needed
                       by some base class, or ignored.
                       Especially 'check' will be ignored
                       since the check function has to 
@@ -567,11 +568,12 @@ class ListChoice(BasicListChoice):
              , check=self._check_value, **kargs)
     
     def _check_value(self, value):
-        """This method checks if self._list contains 'value'
+        """This method checks if self._list contains *value*
         
         The actual choice of the user has to be on the list.
-        @param value: Value to check.
-        @returns:     True if value is on the list, else False.
+        
+        :param value: Value to check.
+        :returns:     True if value is on the list, else False.
         """
         return (value in self._list)
     
@@ -579,7 +581,8 @@ class ListChoice(BasicListChoice):
         """Choose value by the index in self._list
         
         This should simplify to set a valid value.
-        @param index: Index of element that should be configured
+        
+        :param index: Index of element that should be configured
                       (starting from 0).
         """
         try:
@@ -592,7 +595,7 @@ class ListChoice(BasicListChoice):
     def getIndex(self):
         """Returns the current index.
         
-        @returns: Returns the index of the current value
+        :returns: Returns the index of the current value
                   (or None if not set).
         """
         if self.isConfigured():
@@ -601,7 +604,7 @@ class ListChoice(BasicListChoice):
     def getNodeType(self):
         """This method returns the node type.
         
-        @returns: A string that represents the type of this node.
+        :returns: A string that represents the type of this node.
         """
         return NT_LIST
 
@@ -616,9 +619,9 @@ class MultiChoice(BasicListChoice):
     def __init__(self, name, ilist, **kargs):
         """Initializes a new instance.
         
-        @param name:  The name of this node.
-        @param ilist: A list to choose from.
-        @param kargs: Other arguments that are needed
+        :param name:  The name of this node.
+        :param ilist: A list to choose from.
+        :param kargs: Other arguments that are needed
                       by some base class, or ignored.
                       Especially 'check' will be ignored
                       since the check function has to 
@@ -634,9 +637,9 @@ class MultiChoice(BasicListChoice):
         """This method checks if self._list contains 'value'
         
         The actual choice of the user has to be on the list.
-        @param value: Value to check.
-        @type value:  'value' is some sort of list.
-        @returns:     True if all values are on the list, else False.
+        :param value: Value to check.
+        :type value:  'value' is some sort of list.
+        :returns:     True if all values are on the list, else False.
         """
         
         for v in value:
@@ -650,7 +653,7 @@ class MultiChoice(BasicListChoice):
         Note: Invalid indices will be ignored.
         TODO: Maybe change this behaviour.
         
-        @param indices: Tuple of all chosen indices
+        :param indices: Tuple of all chosen indices
                         (index starts from 0).
         """
         values = []
@@ -666,7 +669,7 @@ class MultiChoice(BasicListChoice):
     def getIndices(self):
         """Tries to retrieve the current indices.
         
-        @returns: Returns indices of all items that 
+        :returns: Returns indices of all items that 
                   have been chosen.
         """
         value = self.readValue()
@@ -678,7 +681,7 @@ class MultiChoice(BasicListChoice):
     def getNodeType(self):
         """This method returns the node type.
         
-        @returns: A string that represents the type of this node.
+        :returns: A string that represents the type of this node.
         """
         return NT_MULTI
 
@@ -707,8 +710,8 @@ class DependencyFrame(object):
         'called' (__call__) to really be initialized.
         All dependencies (deps) have to be resolved.
         
-        @param deps: Dependencies of this frame.
-        @type deps:  Normally this will be a list of 'Node' objects
+        :param deps: Dependencies of this frame.
+        :type deps:  Normally this will be a list of 'Node' objects
                      (or some other iterable object).
         """
         self._deps = deps
@@ -723,7 +726,7 @@ class DependencyFrame(object):
         
         TypeExcetion will be thrown if 'func' isn't callable.
         
-        @param func: This function will be called if all dependencies
+        :param func: This function will be called if all dependencies
                      are configured.
         """
         if not isinstance(func, collections.Callable):
@@ -745,7 +748,7 @@ class DependencyFrame(object):
         TODO: I should think about not resolving every node.
         Maybe external nodes are not yet available.
         
-        @param mod: The module node that includes this 
+        :param mod: The module node that includes this 
                     frame. (used to resolve dependencies).
         """
         deps = set()
@@ -770,8 +773,8 @@ class DependencyFrame(object):
         Important: This frame has to know about all changes of 
         node.
         
-        @param name: name of the new node.
-        @param node: the node object with name 'name'
+        :param name: name of the new node.
+        :param node: the node object with name 'name'
         """
         self._nodes[name] = node
         node.addInfoSeeker(self)
@@ -779,7 +782,7 @@ class DependencyFrame(object):
     def addSubFrame(self, frame):
         """Adds a new frame to this frame.
         
-        @param frame: Frame object.
+        :param frame: Frame object.
         """
         self._frames.add(frame)
     
@@ -787,7 +790,8 @@ class DependencyFrame(object):
         """This method removes all node.
         
         Should only be called by this class.
-        @param csf: The current ConfigScriptObj.
+        
+        :param csf: The current ConfigScriptObj.
         """
         csf.removeNodes(self._nodes.keys())
         self._nodes = dict()
@@ -795,7 +799,7 @@ class DependencyFrame(object):
     def _remove_frames(self, csf):
         """This method removes all sub-frames of this frame.
         
-        @param csf: The current ConfigScriptObj.
+        :param csf: The current ConfigScriptObj.
         """
         for frame in self._frames:
             frame._remove_all_nodes(csf)
@@ -806,7 +810,7 @@ class DependencyFrame(object):
     def isAvailable(self):
         """This method checks if all dependent nodes are configured.
         
-        @returns: Returns True if all deps are configured, else
+        :returns: Returns True if all deps are configured, else
                   False.
         """
         for i in self._deps:
@@ -817,7 +821,7 @@ class DependencyFrame(object):
     def isDisabled(self):
         """This method checks if one of the dependent nodes is disabled.
         
-        @returns: Returns True if at least one node is disabled, else
+        :returns: Returns True if at least one node is disabled, else
                   False.
         """
         
@@ -834,7 +838,7 @@ class DependencyFrame(object):
     def needsExecute(self):
         """This method returns if this frame has to be executed.
         
-        @returns: True if this frame needs to be executed.
+        :returns: True if this frame needs to be executed.
         """
         return (self._status & self.NEEDEXEC == self.NEEDEXEC)
     
@@ -844,7 +848,7 @@ class DependencyFrame(object):
         canExecuted means that it needs to be executed and
         is available and resolved.
         
-        @returns: True if this frame can be executed.
+        :returns: True if this frame can be executed.
         """
         ret = self.needsExecute()
         ret = ret and self.isAvailable()
@@ -855,7 +859,8 @@ class DependencyFrame(object):
         """This method really executes the function (frame).
         
         All dependencies have to be configured.
-        @param csf: config script file object. This class is needed
+        
+        :param csf: config script file object. This class is needed
                     to install a hook that this frame will be notified
                     if a new node has been created.
         """
@@ -892,7 +897,7 @@ class ConfigScriptObj(object):
     def __init__(self, modnode):
         """Initializes a new instance...
         
-        @param modnode: The ModuleNode that created this object.
+        :param modnode: The ModuleNode that created this object.
         """
         self._mod = modnode
         self._current_frame = None
@@ -905,8 +910,9 @@ class ConfigScriptObj(object):
         """This method really runs the configure script.
         
         This should create all objects.
-        @param scriptfile: Full path to the scriptfile.
-        @param config:     Current configuartion.
+        
+        :param scriptfile: Full path to the scriptfile.
+        :param config:     Current configuartion.
         """
         self.nodes = dict()
         self.ext_write = list()
@@ -937,8 +943,8 @@ class ConfigScriptObj(object):
         Raises an ChoiceNodeAlreadyBoundError if the name already
         exists.
         
-        @param name:          Name that should be found in some list.
-        @param list_to_check: List that should be checked (if None, 
+        :param name:          Name that should be found in some list.
+        :param list_to_check: List that should be checked (if None, 
                               self.nodes will be checked).
         """
         if list_to_check is None:
@@ -965,9 +971,10 @@ class ConfigScriptObj(object):
     def installHook(self, frame):
         """Installs a hook.
         
-        Every time a new node has been created, 'frame' will be
+        Every time a new node has been created, *frame* will be
         notified.
-        @param frame: The DependencyFrame that is about of beeing
+        
+        :param frame: The DependencyFrame that is about of beeing
                       executed.
         """
         self._current_frame = frame
@@ -993,8 +1000,9 @@ class ConfigScriptObj(object):
         
         Note that this method only should be called if you know what
         you are doing...
-        @param name: Name of new node.
-        @param node: The actual node object.
+        
+        :param name: Name of new node.
+        :param node: The actual node object.
         """
         
         self.nodes[name] = node
@@ -1009,7 +1017,7 @@ class ConfigScriptObj(object):
     def _add_dep_frame(self, frame):
         """This method adds a new Dependency Frame (internal).
         
-        @param frame: New frame to add.
+        :param frame: New frame to add.
         """
         self.frames.append(frame)
         
@@ -1020,9 +1028,9 @@ class ConfigScriptObj(object):
     def define(self, name, value, options):
         """Creates a simple constant value (C #define).
         
-        @param name:    Unique (in one script) name of this node.
-        @param value:   Value of this variable.
-        @param options: All kinds of options.
+        :param name:    Unique (in one script) name of this node.
+        :param value:   Value of this variable.
+        :param options: All kinds of options.
         """
         print("define: ", name, value, options)
         self._check_new_name(name)
@@ -1034,8 +1042,9 @@ class ConfigScriptObj(object):
         
         (This means that '"' will be added at the begin
         and at the end of the value the user sets up)
-        @param name: Unique (in one script) name of this node.
-        @param options: All kinds of options (see InputChoice
+        
+        :param name: Unique (in one script) name of this node.
+        :param options: All kinds of options (see InputChoice
                         for more information.)
         """
         print("string: ", name, options)
@@ -1047,8 +1056,9 @@ class ConfigScriptObj(object):
         """Expression parameter will be created.
         
         This represents only the value the user entered.
-        @param name:    Unique (in one script) name of this node.
-        @param options: All kinds of options (see InputChoice
+        
+        :param name:    Unique (in one script) name of this node.
+        :param options: All kinds of options (see InputChoice
                         for more information.)
         """
         print("expr: ", name, options)
@@ -1059,9 +1069,9 @@ class ConfigScriptObj(object):
     def single(self, name, darray, options):
         """Single List will be created.
         
-        @param name:    Unique (in one script) name of this node.
-        @param darray:  Array of items to choose from.
-        @param options: All kinds of options (see InputChoice
+        :param name:    Unique (in one script) name of this node.
+        :param darray:  Array of items to choose from.
+        :param options: All kinds of options (see InputChoice
                         for more information.)
         """
         print("single: ", name, darray, options)
@@ -1072,9 +1082,9 @@ class ConfigScriptObj(object):
     def multi(self, name, darray, options):
         """Multi List will be created.
         
-        @param name:    Unique (in one script) name of this node.
-        @param darray:  Array of items to choose from.
-        @param options: All kinds of options (see InputChoice
+        :param name:    Unique (in one script) name of this node.
+        :param darray:  Array of items to choose from.
+        :param options: All kinds of options (see InputChoice
                         for more information.)
         """
         print("multi: ", name, darray, options)
@@ -1088,8 +1098,8 @@ class ConfigScriptObj(object):
         Depending Functions are called Frames. All dependencies
         have to be configured to enable such a frame.
         
-        @param deps: List of all dependencies of this Frame.
-        @returns:    The newly created frame object.
+        :param deps: List of all dependencies of this Frame.
+        :returns:    The newly created frame object.
         """
         frame = DependencyFrame(deps)
         self._add_dep_frame(frame)
@@ -1098,9 +1108,9 @@ class ConfigScriptObj(object):
     def override(self, ext, node, options):
         """Overrides an External Node.
         
-        @param ext:     External node that will be overriden.
-        @param node:    Node that replaces the external node.
-        @param options: All kinds of options (see InputChoice
+        :param ext:     External node that will be overriden.
+        :param node:    Node that replaces the external node.
+        :param options: All kinds of options (see InputChoice
                         for more information.)
         """
         print("override: ", ext, node, options)
@@ -1141,14 +1151,14 @@ class ModuleNode(object):
         This method returns the relative path to this module directory
         (relative to src).
         
-        @returns: The relative path to this module (relative to src).
+        :returns: The relative path to this module (relative to src).
         """
         return self._rpath
     
     def fullpath(self):
         """
         This method returns the full path.
-        @returns: Full path.
+        :returns: Full path.
         """
         return os.path.realpath(self._basepath)
     
@@ -1157,8 +1167,9 @@ class ModuleNode(object):
         This method initializes this module.
         (which means parsing the script file and executing 
         the extension script)
-        @param src:   Source directory (relative).
-        @param mods:  A dictionary of all modules that have been found.
+        
+        :param src:   Source directory (relative).
+        :param mods:  A dictionary of all modules that have been found.
         """
         self._script_path = os.path.join(self._basepath
             , _CFG_SCRIPTFILE % self._realname)
@@ -1225,7 +1236,7 @@ class ModuleNode(object):
      , prepend=False):
         """Returns the configuartion dictionary.
         
-        @param formatted: If this flag is set, formatted values
+        :param formatted: If this flag is set, formatted values
                           will be written to the dict. Note that
                           there is no way to extract unformatted
                           values out of formatted ones. (Formatted
@@ -1233,14 +1244,12 @@ class ModuleNode(object):
                           through the *format* function of the node)
                           If you want to save the current setting, 
                           you have to use unformatted values!
-        
-        @param inc_used:  This flag indicates the all values of used
+        :param inc_used:  This flag indicates the all values of used
                           modules will be added to the config dict.
                           Note that this automatically implies that 
                           prepend is set to True (and will be
                           handled that way).
-        
-        @param prepend:   Indicates that the name of the module will
+        :param prepend:   Indicates that the name of the module will
                           be prependet to the name of the variable
                           (so the full name will be *name of the
                           module* followed by an *underscore* followed
@@ -1273,9 +1282,9 @@ class ModuleNode(object):
     def getUsedModule(self, name_or_node):
         """This method tries to find the external module 'name'.
         
-        @param name_or_node: Unique name of the module or ExternalNode
+        :param name_or_node: Unique name of the module or ExternalNode
                              (Only Module Name will be used.)
-        @returns:            The module with name 'name' or None if no 
+        :returns:            The module with name 'name' or None if no 
                              module exists (named 'name').
         """
         
@@ -1292,15 +1301,15 @@ class ModuleNode(object):
     def getNode(self, node, inc_used=True):
         """Tries to find 'node' and returns it.
         
-        @param node:     Identifies node that shall be returned.
-        @type node:      Type can be puser.Node, puser.ExternalNode
+        :param node:     Identifies node that shall be returned.
+        :type node:      Type can be puser.Node, puser.ExternalNode
                          or str (string means that it's a local node
                          -> not an external node.
-        @param inc_used: If set to False, used modules will not be
+        :param inc_used: If set to False, used modules will not be
                          included. (This was necessary to stop modules
                          from including used modules of their used 
                          modules and so on...
-        @returns:        Returns node object.
+        :returns:        Returns node object.
         """
         if isinstance(node, puser.Node):
             return self._cfg.nodes[node.name]
@@ -1354,7 +1363,7 @@ class ModuleNode(object):
         Also checks frames + excludes nodes (and frames) that are
         disabled.
         
-        @returns: Returns True if all nodes that matter are configured,
+        :returns: Returns True if all nodes that matter are configured,
                   else False.
         """
         if self._cfg is not None:
@@ -1420,8 +1429,9 @@ class ModuleNode(object):
 class ModuleManager(object):
     
     def __init__(self, src):
-        """
-        @param src: The source directory where all modules
+        """Initializes a new instance.
+        
+        :param src: The source directory where all modules
                     can be found.
         """
         self._src = src
@@ -1436,7 +1446,7 @@ class ModuleManager(object):
         This method iterates through all modules, executes
         them and configures them (optional).
         
-        @param config: Optional dictionary that represents
+        :param config: Optional dictionary that represents
                        a configuration to load.
         """
         if config is not None:
@@ -1461,8 +1471,8 @@ class ModuleManager(object):
         of all modules and returns it
         Also overwrites the _config dict.
         
-        @return: A dictionary of all configurations of
-                 all modules (all values are unformatted).
+        :returns: A dictionary of all configurations of
+                  all modules (all values are unformatted).
         """
         self._config = dict()
         for (name, mod) in self._mods.items():
@@ -1481,7 +1491,7 @@ class ModuleManager(object):
         it's just a sub-directory and belongs to the parent module
         (or the ModuleManager's targets list).
         
-        @param targetlist: This list contains the files to 
+        :param targetlist: This list contains the files to 
                            add (targets).
         """
         self._load_modules(targetlist, self._targets, '.')
@@ -1493,9 +1503,10 @@ class ModuleManager(object):
         
         This method will be recursively called for each subdirectory
         and load all modules found.
-        @param targetlist:  This should be an instance of TargetTree
+        
+        :param targetlist:  This should be an instance of TargetTree
                             and contain all targets.
-        @param parent:      The target list of a parent module.
+        :param parent:      The target list of a parent module.
                             (Note that this can also be 
                             ModuleManager._targets).
         """
@@ -1531,11 +1542,12 @@ class ModuleManager(object):
         
         This method trys to add a module with 'name' to the
         ModuleManager.
-        @param name:    The name of the module (Note that the
+        
+        :param name:    The name of the module (Note that the
                         real module name will be an uppercase version
                         of this).
-        @param relpath: Relative path to this module.
-        @returns:       The ModuleNode instance.
+        :param relpath: Relative path to this module.
+        :returns:       The ModuleNode instance.
         """
         unique_name = _unique_name(name)
         new_path = os.path.realpath(os.path.join(self._src, relpath))
@@ -1576,10 +1588,10 @@ class ModuleManager(object):
     def isFullyConfigured(self, warning=False):
         """Checks if all modules are configured.
         
-        @param warning: Optional parameter toggles warnings. If set
+        :param warning: Optional parameter toggles warnings. If set
                         warnings will be shown for each module that
                         isn't fully configured.
-        @returns:       Returns true if all modules are configured.
+        :returns:       Returns true if all modules are configured.
         """
         ret = True
         
@@ -1604,6 +1616,7 @@ class ModuleManager(object):
     
     def dump(self):
         """Dumps current module-list.
+        
         This is just a debug method to list all found modules
         and all targets.
         """
