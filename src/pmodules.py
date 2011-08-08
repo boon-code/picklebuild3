@@ -1221,18 +1221,49 @@ class ModuleNode(object):
                 return True
         return False
     
-    def getConfigDict(self, formatted=False, inc_used=False):
+    def getConfigDict(self, formatted=False, inc_used=False
+     , prepend=False):
+        """Returns the configuartion dictionary.
         
+        @param formatted: If this flag is set, formatted values
+                          will be written to the dict. Note that
+                          there is no way to extract unformatted
+                          values out of formatted ones. (Formatted
+                          values means values that have been run
+                          through the *format* function of the node)
+                          If you want to save the current setting, 
+                          you have to use unformatted values!
+        
+        @param inc_used:  This flag indicates the all values of used
+                          modules will be added to the config dict.
+                          Note that this automatically implies that 
+                          prepend is set to True (and will be
+                          handled that way).
+        
+        @param prepend:   Indicates that the name of the module will
+                          be prependet to the name of the variable
+                          (so the full name will be *name of the
+                          module* followed by an *underscore* followed
+                          by *the actual variable name*).
+        """
         # check self._cfg (executed...)
+        
+        if inc_used and (not prepend):
+            prepend = True
+            self._log.info("Prepend will automatically be implied")
+        
         mod_config = dict()
         for (name, node) in self._cfg.nodes.items():
             if (node.isConfigured()) and (not node.isDisabled()):
-                key = "%s_%s" % (self._uname, name)
+                if prepend:
+                    key = "%s_%s" % (self._uname, name)
+                else:
+                    key = name
                 mod_config[key] = node.readValue(formatted=formatted)
         if inc_used:
             for used, name in self._used_mods:
                 cfg = used.getConfigDict(formatted=formatted
-                     , inc_used=False)
+                     , inc_used=False, prepend=True)
                 mod_config.update(cfg)
         return mod_config
     
@@ -1304,7 +1335,8 @@ class ModuleNode(object):
     def generateDst(self, dst, cbcfg=None):
         
         env = {'__builtins__' : __builtins__, 'math' : math}
-        cfg_dict = self.getConfigDict(formatted=True, inc_used=True)
+        cfg_dict = self.getConfigDict(formatted=True, inc_used=True
+         , prepend=True)
         env.update(cfg_dict)
         
         for i in self.targets:
@@ -1422,7 +1454,7 @@ class ModuleManager(object):
         for mod in self._mods.values():
             mod.executeFrames()
     
-    def collectConfig(self, formatted=False):
+    def collectConfig(self):
         """Collects current configuration.
         
         This method collects the current configuration
@@ -1430,11 +1462,11 @@ class ModuleManager(object):
         Also overwrites the _config dict.
         
         @return: A dictionary of all configurations of
-                 all modules.
+                 all modules (all values are unformatted).
         """
         self._config = dict()
         for (name, mod) in self._mods.items():
-            self._config[name] = mod.getConfigDict(formatted=formatted)
+            self._config[name] = mod.getConfigDict(formatted=False)
         
         return self._config
     

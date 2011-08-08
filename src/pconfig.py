@@ -353,7 +353,7 @@ def _expand_all(args):
             yield i
 
 
-def add(args):
+def add(parser, args):
     parser.usage="usage: %prog add [options] files"
     options, args = parser.parse_args(args)
     
@@ -443,12 +443,15 @@ def configure(parser, args):
     config = dict()
     if os.path.isfile(path):
         config = pfile.loadConfigFile(path)
+    else:
+        logging.warning("Default configuration does not exist")
     man.loadNodes(config=config)
     ctrl = cfgcontrol.ConfigController(Pbgui, man)
     save_settings = ctrl.mainloop()
     if save_settings:
         print("Is fully configured: "
              , man.isFullyConfigured(warning=True))
+        print(man.collectConfig())
         pfile.saveConfigFile(path, man.collectConfig())
 
 
@@ -482,13 +485,10 @@ def make(parser, args):
             if not ctrl.mainloop():
                 print("exiting")
                 return
+    
     if not man.isFullyConfigured():
         return
-    output = man.collectConfig(formatted=True)
-    for name, mod in output.items():
-        print("%s:" % name)
-        for key, value in mod.items():
-            print(" - %s = '%s'" % (key, str(value)))
+    
     if options.cheaders:
         man.generateOutput(cfg.fullDestination()
          , cbcfg=cdefines.generateHeader)

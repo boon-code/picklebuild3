@@ -23,6 +23,7 @@ def loadConfigFile(path):
     with open(path, "r") as f:
         return json.load(f)
 
+
 def saveConfigFile(path, objs):
     
     with open(path, "w") as f:
