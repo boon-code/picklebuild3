@@ -23,7 +23,7 @@ import cdefines
 __author__ = 'Manuel Huber'
 __copyright__ = "Copyright (c) 2011 Manuel Huber."
 __license__ = 'GPLv3'
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 __docformat__ = "restructuredtext en"
 
 
@@ -546,21 +546,27 @@ def main(args, loglevel=logging.DEBUG):
         pass
     except SourceNotFoundError as e:
         print("Couldn't find source directory (%s)" % e.path)
+        return
     except NotProperlyConfiguredError as e:
         print("Not properly configured.\n%s" % e.error_source)
         print("Use 'setup' command to set up project.")
+        return
     except:
         logging.shutdown()
         raise
     
-    parser.usage=_CMD_USAGE
-    parser.description=_CMD_DESC
-    options, args = parser.parse_args(args)
-    
-    if (cmd is not None) and len(args) > 1:
-        logging.error("Invalid command '%s'. See '--help'" % cmd)
-    else:
-        parser.print_help(file=sys.stdout)
+    try:
+        parser.usage=_CMD_USAGE
+        parser.description=_CMD_DESC
+        options, args = parser.parse_args(args)
+        
+        if len(args) > 1:
+            cmd = args[1]
+            logging.error("Invalid command '%s'. See '--help'" % cmd)
+        else:
+            parser.print_help(file=sys.stdout)
+    finally:
+        logging.shutdown()
 
 
 if __name__ == '__main__':
