@@ -31,6 +31,15 @@ __docformat__ = "restructuredtext en"
 class Pbgui(CustomPbgui):
     
     def __init__(self, controller):
+        """Initilializes a new instance.
+        
+        CustomPbgui from pbgui module will be extended (in fact, 
+        all methods will be implemented).
+        
+        :param controller: Controller object that will be used to
+                           retrieve data from logic part of this
+                           application (MVC pattern).
+        """
         root = tkinter.Tk()
         CustomPbgui.__init__(self, root)
         self._root = root
@@ -132,6 +141,7 @@ class Pbgui(CustomPbgui):
         
         Will be called by the controller if a new set of modules
         has been loaded.
+        
         :param names: Module names that will be shown in list.
         """
         self._reset_listbox(self._lsModules)
@@ -236,6 +246,7 @@ class Pbgui(CustomPbgui):
         node will be selected, the controller should call this 
         method to configure the gui to let the user enter some 
         text or expression.
+        
         :param choice: The configured value (or None).
         """
         self._reset_config()

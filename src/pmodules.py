@@ -1587,15 +1587,22 @@ class ModuleManager(object):
             return mod
     
     def getModuleNames(self):
+        """Method to retrieve all module-names.
+        
+        :returns: A tuple of all module-names.
+        """
         return tuple(self._mods.keys())
     
     def getModule(self, name):
+        """Returns the module specified by *name*.
         
-        if name in self._mods:
-            return self._mods[name]
-        else:
-            # TODO: Exception
-            return None
+        :raise KeyError: If *name* doesn't specify a module in
+                         self._mods.
+        :param name:     Name of the *ModuleNode* that should be
+                         returned.
+        :returns:        The requested (by *name*) ModuleNode object.
+        """
+        return self._mods[name]
     
     def isFullyConfigured(self, warning=False):
         """Checks if all modules are configured.

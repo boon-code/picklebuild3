@@ -471,10 +471,18 @@ def make(parser, args):
     
     if options.load is None:
         path = os.path.join(cfg.config_dir, _PC_CCF)
+        if not os.path.isfile(path):
+            logging.debug("No 'current config' exists yet.")
     else:
         path = options.load
+        if not os.path.isfile(path):
+            logging.error("Couldn't find config-file '%s'." % path)
     
-    config = pfile.loadConfigFile(path)
+    if os.path.isfile(path):
+        config = pfile.loadConfigFile(path)
+    else:
+        config = dict()
+    
     man = pmodules.ModuleManager(cfg.fullSource())
     man.initModules(cfg.targets)
     man.loadNodes(config=config)
@@ -483,6 +491,7 @@ def make(parser, args):
         while not man.isFullyConfigured():
             ctrl = cfgcontrol.ConfigController(Pbgui, man)
             if not ctrl.mainloop():
+                # User pressed the 'cancle' button.
                 print("exiting")
                 return
     
@@ -516,8 +525,6 @@ def main(args, loglevel=logging.DEBUG):
     """
     logging.basicConfig(stream=sys.stderr, format=_DEFAULT_LOG_FORMAT
      , level=loglevel)
-    
-    logging.debug("Configuring logging system.")
     
     parser = OptionParser(version=_VERSION)
     verb_level = tuple(_VERBOSITY_LEVEL)
