@@ -11,6 +11,7 @@ import sys
 import os
 import re
 import traceback
+import logging
 
 
 __author__ = 'Manuel Huber'
@@ -21,24 +22,64 @@ __docformat__ = "restructuredtext en"
 _START_TAG = "<?"
 _END_TAG = "?>"
 _CODE_RE = re.compile("^<\\?\\s*py:")
+_LOGGER_NAME = 'eval'
+
+
+class EvalException(Exception):
+    """This is the base-exception for this module.
+    
+    All Exception have to be derived from this.
+    """
+    pass
+
+
+class CodeEvaluationError(EvalException):
+    """This exception will be raised, if evaluated code fails.
+    
+    Since this module executes user written code, it's very
+    likely that there are errors in the code and it fails.
+    This exception should indicate where the error happend
+    to give feedback to the user.
+    """
+    
+    def __init__(self, name, line, *args):
+        """Initializes a new instance.
+        
+        :param name: Name of the file that caused the error.
+        :param line: Line number where the error occurred.
+        :param args: Other arguments that will be passed to
+                     base.
+        """
+        EvalException.__init__(self, *args)
+        self.line = line
+        self.name = name
+
+
+class MissingClosingTagError(EvalException):
+    """This exception will be raised on missing closeing tags.
+    
+    If the file that is about to execute contains an inline
+    python code start tag but no corresponding end tag could be
+    found, this exception will be raised.
+    """
+    
+    def __init__(self, name, line, *args):
+        """Initializes a new instance.
+        
+        :param name: Name of the file that produced the error.
+        :param line: Line number of starting block.
+        :param args: Additional arguments that will be passed
+                     to base exception class.
+        """
+        EvalException.__init__(self, *args)
+        self.line = line
+        self.name = name
 
 
 def _cpp_escape(value):
     value = value.replace('\\', '\\\\')
     value = value.replace('"', '\\"')
     return value
-
-
-def _eval_data(code, env):
-    
-    try:
-        exec(code, env, env)
-    except (KeyboardInterrupt, SystemExit):
-        sys.exit()
-    except Exception:
-        sys.stderr.write(traceback.format_exc())
-        sys.stderr.write(code)
-        sys.exit(1)
 
 
 class EchoHelper(object):
@@ -83,59 +124,123 @@ class EchoHelper(object):
         self._list_echo(text, pre='"', post='"\n')
 
 
-def parseData(data, dst, env):
-    """Parse a string and evaluate inline python code.
+class PyParser(object):
+    """This class is used to execute inline python code.
     
-    :param data: String that will be searched for python inline
-                 tags. 
-    :param dst:  Output file that will be created, all none inline
-                 code will be just copied from *data* to *dst*
-                 and all python inline tags will be replaced by
-                 their output.
-    :param env:  Environment dictionary that will be passed to
-                 the inline code (and can be used by it).
+    It parses a string and writes the resulting file
+    to a stream.
     """
-    echo_obj = EchoHelper(dst)
-    env['echo'] = echo_obj.echo
-    env['put'] = echo_obj.echo_nl
-    env['sput'] = echo_obj.str_echo_nl
-    env['secho'] = echo_obj.str_echo
     
-    tag = False
-    code = ''
-    found = True
-    
-    while found:
-        if not tag:
-            start_pos = data.find(_START_TAG)
-            if start_pos >= 0:
-                if len(data[0:start_pos]) > 0:
-                    dst.write(data[0:start_pos])
-                tag = True
-                data = data[start_pos:]
-                code_match = _CODE_RE.search(data)
-                if not (code_match is None):
-                    code = ''
-                    data = data[code_match.end():]
-            else:
-                found = False
+    def __init__(self, dst, env, name="<noname>"):
+        """Initializes a new instance.
         
-        if tag:
-            end_pos = data.find(_END_TAG)
-            if end_pos >= 0:
-                tag = False
-                if not (code_match is None):
-                    code = data[0:end_pos]
-                    _eval_data(code, env)
-                    end_pos += len(_END_TAG)
-                    data = data[end_pos:]
-                else:
-                    sys.stderr.write("unknown tag...")
-            else:
-                found = False
-                sys.stderr.write("didn't find '?>'")
-                sys.exit()
+        :param dst:    The destination stream. All data will be written
+                       to this stream.
+        :param env:    The environment which will be used to execute
+                       the inline python code.
+        :keyword name: Name to idientify the file that is about to
+                       be executed.
+        """
+        self._dst = dst
+        self._env = env
+        self._name = name
+        self._log = logging.getLogger(_LOGGER_NAME)
+        
+        # TRICKEY: I start counting at 0 (see _eval_data).
+        self._curr_line = 0
     
-    if len(data) > 0:
-        dst.write(data)
-        dst.flush()
+    def _eval_data(self, code):
+        """Evaluates an inline python code block.
+        
+        :param code: The source code that this method will
+                     execute.
+        """
+        try:
+            exec(code, self._env, self._env)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as e:
+            tb = sys.exc_info()[2]
+            tb = tb.tb_next
+            
+            # TRICKEY: Since self._curr_line starts with 0
+            #          We can simple add both line numbers.
+            ln = self._curr_line + tb.tb_lineno
+            
+            errtxt = ("Script Error: name: '%s', line '%d'"
+             % (self._name, ln))
+            self._log.exception(errtxt)
+            raise CodeEvaluationError(self._name, ln, *e.args) from e 
+    
+    def _add_line_count(self, chunk):
+        """Counts newline characters and adds them to current.
+        
+        This method just counts all newline characters in *chunk*
+        and adds the number to the current line number 
+        *self._curr_line*.
+        
+        :param chunk: The string to search for newline characters.
+        """
+        self._curr_line += chunk.count('\n')
+    
+    def parseString(self, data):
+        """Parses a string and executes all inline code.
+        
+        All none inline code from *data* will just be copied to 
+        self._dst (see constructor). All python inline tags will be
+        replaced by their output.
+        
+        :param data: Data that will be parsed and executed.
+        :type data: string
+        """
+        echo_obj = EchoHelper(self._dst)
+        self._env['echo'] = echo_obj.echo
+        self._env['put'] = echo_obj.echo_nl
+        self._env['sput'] = echo_obj.str_echo_nl
+        self._env['secho'] = echo_obj.str_echo
+        
+        tag = False
+        code = ''
+        found = True
+        self._curr_line = 0
+        
+        while found:
+            if not tag:
+                start_pos = data.find(_START_TAG)
+                if start_pos >= 0:
+                    chunk = data[0:start_pos]
+                    if len(chunk) > 0:
+                        self._add_line_count(chunk)
+                        self._dst.write(chunk)
+                    tag = True
+                    data = data[start_pos:]
+                    code_match = _CODE_RE.search(data)
+                    if not (code_match is None):
+                        code = ''
+                        data = data[code_match.end():]
+                else:
+                    found = False
+            
+            if tag:
+                end_pos = data.find(_END_TAG)
+                if end_pos >= 0:
+                    tag = False
+                    if not (code_match is None):
+                        code = data[0:end_pos]
+                        self._eval_data(code)
+                        self._add_line_count(code)
+                        end_pos += len(_END_TAG)
+                        data = data[end_pos:]
+                    else:
+                        self._log.warning("Unknown tag (~line '%d')."
+                         % self._curr_line)
+                else:
+                    found = False
+                    self._log.error("No closing ?>, line '%d':"
+                     % self._curr_line)
+                    raise MissingClosingTagError(self._name
+                     , self._curr_line)
+        
+        if len(data) > 0:
+            self._dst.write(data)
+            self._dst.flush()

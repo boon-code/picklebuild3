@@ -70,7 +70,8 @@ class Pbgui(CustomPbgui):
         path = askopenfilename(filetypes = [('config', '*.jso')]
              , title = "open file")
         
-        if path != '':
+        if path:
+            print("trying to open file ", path)
             self._ctrl.loadConfig(path)
     
     #override
@@ -78,7 +79,7 @@ class Pbgui(CustomPbgui):
         path = asksaveasfilename(filetypes = [('config', '*.jso')]
              ,title = "save file")
         
-        if path != '':
+        if path:
             self._ctrl.saveConfig(path)
     
     #override

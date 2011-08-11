@@ -6,22 +6,22 @@
 It contains all objects that are needed to hold configuration.
 """
 
+from warnings import warn
+from optparse import OptionParser
 import os
 import re
 import sys
-import shlex
 import json
+import shlex
 import shutil
 import math
 import logging
 import collections
-from warnings import warn
-from optparse import OptionParser
-from functools import partial
+from pexcept import NotYetWorkingWarning
+from peval import PyParser
 import targets
 import puser
-import peval
-from pexcept import NotYetWorkingWarning
+
 
 
 __author__ = 'Manuel Huber'
@@ -1365,7 +1365,8 @@ class ModuleNode(object):
                 with open(path, 'r') as f:
                     data = f.read()
                 with open(path, 'w') as f:
-                    peval.parseData(data, f, env)
+                    parser = PyParser(f, env, name=path)
+                    parser.parseString(data)
         if isinstance(cbcfg, collections.Callable):
             cbcfg(self, dst, cfg_dict)
     
