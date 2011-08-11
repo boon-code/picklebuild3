@@ -47,7 +47,7 @@ class CodeEvalError(EvalException):
     to give feedback to the user.
     """
     
-    def __init__(self, name, line, *args, cause=None):
+    def __init__(self, name, line, args, cause=None):
         """Initializes a new instance.
         
         :param name:    Name of the file that caused the error.
@@ -60,7 +60,7 @@ class CodeEvalError(EvalException):
         EvalException.__init__(self, *args)
         self.line = line
         self.name = name
-        self.cause=cause
+        self.cause = cause
 
 
 class NotAllowedError(EvalException):
@@ -300,8 +300,8 @@ class ExecEnvironment(object):
             tb = sys.exc_info()[2]
             ln = tb.tb_lineno + add_ln
             self._log.debug("Error while trying to compile user-code.")
-            raise CodeEvalError(self.name, ln, cause=e.text
-             , *e.args) from e
+            raise CodeEvalError(self.name, ln, e.args
+             , cause=e.text) from e
         
         try:
             exec(code, self.env, self.env)
@@ -314,8 +314,8 @@ class ExecEnvironment(object):
             tb = tb.tb_next
             ln = tb.tb_lineno + add_ln
             self._log.debug("Error while trying to execute user-code.")
-            raise CodeEvalError(self.name, ln, cause=str(e)
-             , *e.args) from e
+            raise CodeEvalError(self.name, ln, e.args
+             , cause=str(e)) from e
 
 
 class PyParser(object):
