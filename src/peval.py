@@ -7,7 +7,7 @@ This module is based on an old one I used in my old buildsystem.
 I introduced a new class, PyParser. This class replaces the parseData
 method. It's a bit more flexible, which I needed to calculate the
 current line number if an error occurred (This should be very
-helpful to find errors in configure scripts).
+helpful to find errors in source code using inline python code tags).
 """
 
 import sys
@@ -15,6 +15,7 @@ import os
 import re
 import traceback
 import logging
+from pexcept import NotYetWorkingWarning
 
 
 __author__ = 'Manuel Huber'
@@ -36,7 +37,7 @@ class EvalException(Exception):
     pass
 
 
-class CodeEvaluationError(EvalException):
+class CodeEvalError(EvalException):
     """This exception will be raised, if evaluated code fails.
     
     Since this module executes user written code, it's very
@@ -45,17 +46,20 @@ class CodeEvaluationError(EvalException):
     to give feedback to the user.
     """
     
-    def __init__(self, name, line, *args):
+    def __init__(self, name, line, *args, cause=None):
         """Initializes a new instance.
         
-        :param name: Name of the file that caused the error.
-        :param line: Line number where the error occurred.
-        :param args: Other arguments that will be passed to
-                     base.
+        :param name:    Name of the file that caused the error.
+        :param line:    Line number where the error occurred.
+        :param args:    Other arguments that will be passed to
+                        base.
+        :keyword cause: The line of code that caused the error
+                        or None.
         """
         EvalException.__init__(self, *args)
         self.line = line
         self.name = name
+        self.cause=cause
 
 
 class MissingClosingTagError(EvalException):
@@ -127,6 +131,74 @@ class EchoHelper(object):
         self._list_echo(text, pre='"', post='"\n')
 
 
+class ExecEnvironment(object):
+    """This class can be used to evaluate code
+    
+    I will try to make this method as secure as possible as well
+    as helpful for the user to find errors.
+    """
+    
+    def __init__(self, env, ovr_builtins=False, name="<string>"):
+        """Initializes a new instance.
+        
+        :param env:            An environment dictionary that 
+                               should cover all variables that are
+                               needed by the executed code. The 
+                               environment can be changed by the 
+                               code (and subsequent calls will use 
+                               the modified version of env).
+        :keyword ovr_builtins: The override-buitlins flag controls,
+                               if this class will use a supplied
+                               *__builtins__* version, or use it's
+                               own. If set to True, the built-in
+                               version will be used.
+        :keyword name:         *name* will be used by compile
+                               and can be used to add context
+                               what is about to be executed
+                               (A file, user input, etc...).
+                               Default is '<string>'.
+        """
+        self.env = env
+        self.name = name
+        self._log = logging.getLogger(_LOGGER_NAME)
+        
+        if ovr_builtins:
+            raise NotYetWorkingWarning("override builtins"
+             + "not yet implemented")
+    
+    def __call__(self, data, add_ln=0):
+        """Executes the given string as python code.
+        
+        :param data:     Data that will be executed.
+        :keyword add_ln: This number will be added to the line
+                          number, if an error occurres.
+        """
+        try:
+            code = compile(data, self.name, 'exec')
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except SyntaxError as e:
+            tb = sys.exc_info()[2]
+            ln = tb.tb_lineno + add_ln
+            self._log.debug("Error while trying to compile user-code.")
+            raise CodeEvalError(self.name, ln, cause=e.text
+             , *e.args) from e
+        
+        try:
+            exec(code, self.env, self.env)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as e:
+            tb = sys.exc_info()[2]
+            if tb.tb_next is None:
+                raise
+            tb = tb.tb_next
+            ln = tb.tb_lineno + add_ln
+            self._log.debug("Error while trying to execute user-code.")
+            raise CodeEvalError(self.name, ln, cause=str(e)
+             , *e.args) from e
+
+
 class PyParser(object):
     """This class is used to execute inline python code.
     
@@ -145,12 +217,10 @@ class PyParser(object):
                        be executed.
         """
         self._dst = dst
-        self._env = env
         self._name = name
         self._log = logging.getLogger(_LOGGER_NAME)
-        
-        # TRICKEY: I start counting at 0 (see _eval_data).
-        self._curr_line = 0
+        self._curr_line = 1
+        self._eval = ExecEnvironment(env, name=name)
     
     def _eval_data(self, code):
         """Evaluates an inline python code block.
@@ -158,22 +228,7 @@ class PyParser(object):
         :param code: The source code that this method will
                      execute.
         """
-        try:
-            exec(code, self._env, self._env)
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except Exception as e:
-            tb = sys.exc_info()[2]
-            tb = tb.tb_next
-            
-            # TRICKEY: Since self._curr_line starts with 0
-            #          We can simple add both line numbers.
-            ln = self._curr_line + tb.tb_lineno
-            
-            errtxt = ("Script Error: name: '%s', line '%d'"
-             % (self._name, ln))
-            self._log.exception(errtxt)
-            raise CodeEvaluationError(self._name, ln, *e.args) from e 
+        self._eval(code, add_ln=(self._curr_line - 1))
     
     def _add_line_count(self, chunk):
         """Counts newline characters and adds them to current.
@@ -197,15 +252,15 @@ class PyParser(object):
         :type data: string
         """
         echo_obj = EchoHelper(self._dst)
-        self._env['echo'] = echo_obj.echo
-        self._env['put'] = echo_obj.echo_nl
-        self._env['sput'] = echo_obj.str_echo_nl
-        self._env['secho'] = echo_obj.str_echo
+        self._eval.env['echo'] = echo_obj.echo
+        self._eval.env['put'] = echo_obj.echo_nl
+        self._eval.env['sput'] = echo_obj.str_echo_nl
+        self._eval.env['secho'] = echo_obj.str_echo
         
         tag = False
         code = ''
         found = True
-        self._curr_line = 0
+        self._curr_line = 1
         
         while found:
             if not tag:
@@ -241,7 +296,7 @@ class PyParser(object):
                     found = False
                     self._log.error("No closing ?>, line '%d':"
                      % self._curr_line)
-                    raise MissingClosingTagError(self._name
+                    raise MissingClosingTagError(self._eval.name
                      , self._curr_line)
         
         if len(data) > 0:

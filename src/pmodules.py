@@ -18,7 +18,7 @@ import math
 import logging
 import collections
 from pexcept import NotYetWorkingWarning
-from peval import PyParser
+from peval import PyParser, ExecEnvironment
 import targets
 import puser
 
@@ -946,8 +946,10 @@ class ConfigScriptObj(object):
                     % name)
             env[name] = ext
         
+        exec_env = ExecEnvironment(env, name=scriptfile)
+        
         with open(scriptfile, 'r') as f:
-            exec(compile(f.read(), '<string>', 'exec'), env, env)
+            exec_env(f.read())
     
     def _check_new_name(self, name, list_to_check=None):
         """This method checks if 'name' is in a certain list.
