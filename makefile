@@ -1,7 +1,7 @@
 NAME=pconfig
 SRCS=src/cdefines.py src/cfgcontrol.py src/__main__.py src/pbgui.py \
      src/pbgui_imp.py src/pbgui_ui.py src/pconfig.py src/peval.py \
-     src/pexcept.py src/pfile.py src/pmodules.py src/puser.py \
+     src/pbasic.py src/pfile.py src/pmodules.py src/puser.py \
      src/targets.py src/Tkinter.py
 
 ZIPPER= 

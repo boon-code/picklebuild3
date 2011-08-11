@@ -6,7 +6,7 @@
 
 from warnings import warn
 import collections
-from pexcept import NotYetWorkingWarning
+from pbasic import NotYetWorkingWarning
 import pmodules
 import pfile
 

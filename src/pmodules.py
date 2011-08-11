@@ -8,6 +8,7 @@ It contains all objects that are needed to hold configuration.
 
 from warnings import warn
 from optparse import OptionParser
+from ast import literal_eval
 import os
 import re
 import sys
@@ -17,7 +18,7 @@ import shutil
 import math
 import logging
 import collections
-from pexcept import NotYetWorkingWarning
+from pbasic import NotYetWorkingWarning
 from peval import PyParser, ExecEnvironment
 import targets
 import puser
@@ -410,7 +411,7 @@ class ExprChoice(BasicChoice):
     def _expr_format(self, value):
         """Format method used to create objects from *value*
         """
-        return json.loads(value)
+        return literal_eval(value)
     
     def getNodeType(self):
         """This method returns the node type.
@@ -427,7 +428,16 @@ class InputChoice(BasicChoice):
     default format function (and won't take any other).
     
     """
-    def __init__(self, name, **kargs):
+    
+    C_STRING = 'cstr'
+    TEXT = 'txt'
+    INT = 'int'
+    BOOL = 'bool'
+    JSON = 'json'
+    
+    TYPES = (C_STRING, TEXT, INT, JSON)
+    
+    def __init__(self, name, type='txt', **kargs):
         """Initializes a new node.
         
         :param name:  Name of this node.
@@ -436,11 +446,21 @@ class InputChoice(BasicChoice):
                       a base class)
                       Note that 'format' will be ignored.
         """
+        # TODO: - document
+        #       - override check function but still support
+        #         user defined one.
         kargs.pop('format', None)
-        self._format = self._format_value
-        BasicChoice.__init__(self, name, **kargs)
+        if type == self.C_STRING:
+            func = self._format_cstring
+        elif type == self.INT:
+            func = self._format_int
+        elif type == self.JSON:
+            func = self._format_json
+        else:
+            func = self._format_text
+        BasicChoice.__init__(self, name, format=func, **kargs)
     
-    def _format_value(self, value):
+    def _format_cstring(self, value):
         """This method formats *value*
         
         It checks that no ' " ' characters mess up the 
@@ -453,6 +473,15 @@ class InputChoice(BasicChoice):
         value = value.replace('\\', '\\\\')
         value = value.replace('"', '\\"')
         return "".join(('"', value, '"'))
+    
+    def _format_text(self, value):
+        return str(value)
+    
+    def _format_int(self, value):
+        return int(value)
+    
+    def _format_json(self, value):
+        return json.loads(value)
     
     def getNodeType(self):
         """This method returns the node type.
@@ -1056,6 +1085,19 @@ class ConfigScriptObj(object):
         
         (This means that '"' will be added at the begin
         and at the end of the value the user sets up)
+        
+        :param name: Unique (in one script) name of this node.
+        :param options: All kinds of options (see InputChoice
+                        for more information.)
+        """
+        print("string: ", name, options)
+        self._check_new_name(name)
+        options['type'] = InputChoice.C_STRING
+        self._add_node(name, InputChoice(name, **options))
+        return puser.Node(name)
+    
+    def input(self, name, options):
+        """Input parameter will be created
         
         :param name: Unique (in one script) name of this node.
         :param options: All kinds of options (see InputChoice
