@@ -10,3 +10,6 @@ anything in generated files and still get them to work properly.
 """
 
 from tkinter import *
+
+
+__docformat__ = "restructuredtext en"

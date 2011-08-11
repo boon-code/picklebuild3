@@ -3,8 +3,11 @@
 
 """This module is about inline python code evaluation.
 
-This is a relatively unchanged version from my old buildsystem
-and tries to parse inline code. Only use parseData function.
+This module is based on an old one I used in my old buildsystem.
+I introduced a new class, PyParser. This class replaces the parseData
+method. It's a bit more flexible, which I needed to calculate the
+current line number if an error occurred (This should be very
+helpful to find errors in configure scripts).
 """
 
 import sys
