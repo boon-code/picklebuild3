@@ -28,6 +28,18 @@ class TestExecEnvironment(unittest.TestCase):
             self.assertTrue(isinstance(e.__cause__, NameError))
             self.assertTrue(e.line == 1)
     
+    def test_builtins(self):
+        code = "for i in range(5):\n    print(i)\na=3\n"
+        e = ExecEnvironment(ovr_builtins=True)
+        e(code)
+        self.assertTrue('a' in e.env)
+    
+    def test_builtins2(self):
+        import execbuiltins
+        code = "for i in range(5):\n    print(i)\nf = open('bla.txt', 'w')"
+        e = ExecEnvironment(env={'__builtins__' : execbuiltins})
+        e(code)
+    
     def tearDown(self):
         self._eval = None
 

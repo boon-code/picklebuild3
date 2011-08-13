@@ -10,9 +10,11 @@ current line number if an error occurred (This should be very
 helpful to find errors in source code using inline python code tags).
 """
 
+from functools import partial
 import sys
 import os
 import re
+import imp
 import traceback
 import logging
 import builtins
@@ -249,6 +251,9 @@ class ExecEnvironment(object):
     as helpful for the user to find errors.
     """
     
+    blacklist = ('__debug__', '__import__', 'eval', 'exec'
+     , 'open', 'compile')
+    
     def __init__(self, env=dict(), ovr_builtins=False
      , name="<string>"):
         """Initializes a new instance.
@@ -279,11 +284,19 @@ class ExecEnvironment(object):
         if ovr_builtins:
             # Not yet finished!!!
             # This is not yet safe
-            bi = ExecBuiltins()
-            raise NotYetWorkingWarning()
+            bi = imp.new_module("exbuiltins")
+            setattr(bi, 'getattr', self._get_attr)
         elif bi is None:
-            bi = __builtins__
+            bi = builtins
         self.env['__builtins__'] = bi
+        self.env['getattr'] = self._get_attr
+    
+    def _get_attr(self, attr_name):
+        
+        if attr_name in self.blacklist:
+            raise NotAllowedError(the_member_name, "Not allowed")
+        else:
+            return builtins.getattr(attr_name)
     
     def __call__(self, data, add_ln=0):
         """Executes the given string as python code.
