@@ -1,6 +1,11 @@
 ==================
 The final approach
 ==================
+
+.. _here : http://boon-code.github.com/picklebuild3/
+
+The documentation can be found here_.
+
 History:
 --------
 This is my final approach on picklebuild. I have already tried 3 times to create this tool and I had versions that could be used, but this time I think there really is a chance to complete it and create a usefull new tool.
