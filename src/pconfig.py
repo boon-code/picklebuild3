@@ -23,7 +23,7 @@ import cdefines
 __author__ = 'Manuel Huber'
 __copyright__ = "Copyright (c) 2011 Manuel Huber."
 __license__ = 'GPLv3'
-__version__ = '0.0.5b'
+__version__ = '0.0.6b'
 __docformat__ = "restructuredtext en"
 
 
@@ -113,6 +113,8 @@ class MainConfig(object):
                          This automatically enables autoload.
         """
         self._real_init(cwd)
+        self.source = None
+        self.dest = None
         if autoload or failinpc:
             self.loadConfig()
         if failinpc and (not self.isProperlyConfigured()):
@@ -147,8 +149,6 @@ class MainConfig(object):
         self.base_dir = None
         self.config_dir = None
         self.targets = None
-        self.source = None
-        self.dest = None
         
         bd = self._find_base_dir(cwd)
         if bd is not None:
